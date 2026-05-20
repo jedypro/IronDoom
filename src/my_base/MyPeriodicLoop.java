@@ -12,10 +12,10 @@ public class MyPeriodicLoop extends PeriodicLoop {
 		// Let the super class do its work first
 		super.execute();
 		// Then do your own work here ...
-		//if (step < 3) {
+		if (step < 3) {
 			System.out.println("Periodic loop step " + step);
 			content.teamBackend().doStep(step);
 			step++;
-		//}
+		}
 	}
 }

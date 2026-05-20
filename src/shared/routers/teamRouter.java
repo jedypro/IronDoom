@@ -30,10 +30,6 @@ public class teamRouter implements SubRouter {
                 backend.doStep(p.getInt(0));
                 return null;
             }
-            case "/launchMissile": {
-                backend.launchMissile();;
-                return null;
-            }
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }

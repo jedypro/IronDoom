@@ -7,7 +7,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 
 public class PeriodicScheduler {
-	public static int periodicInterval = 30;
+	public static int periodicInterval = 300;
 	private PeriodicLoop periodicLoop;
 	private final ScheduledExecutorService scheduler =
 			Executors.newScheduledThreadPool(1);

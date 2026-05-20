@@ -3,7 +3,6 @@ package ai.ui;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
-import my_base.App;
 import shared.ui_ports.TeamUiPort;
 
 import java.awt.Color;
@@ -22,10 +21,5 @@ public class TeamUiPortImpl extends TeamUiPort {
     @Override
     public void log(String message) {
         System.out.println(message);
-    }
-
-    @Override
-    public void updateMissilePosition(double x, double y) {
-        App.UI().moveMissileGraphic(x, y);
     }
 }

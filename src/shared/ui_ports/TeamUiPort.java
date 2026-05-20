@@ -18,5 +18,4 @@ public abstract class TeamUiPort {
     // Your UI commands here, for example:
     public abstract void method1(int id);
     public abstract void log(String message);
-    public abstract void updateMissilePosition(double x, double y);
 }
