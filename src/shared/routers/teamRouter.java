@@ -27,7 +27,7 @@ public class teamRouter implements SubRouter {
 
             // UI input: drag point
             case "/doStep": {
-                backend.doStep(p.getInt(0));
+                backend.doStep(p.getDouble(0));
                 return null;
             }
             default:

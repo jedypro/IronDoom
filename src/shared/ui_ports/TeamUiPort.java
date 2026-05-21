@@ -18,4 +18,8 @@ public abstract class TeamUiPort {
     // Your UI commands here, for example:
     public abstract void method1(int id);
     public abstract void log(String message);
+    public abstract void removeEntity(int id);
+    public abstract void triggerExplosion(int x, int y);
+    public abstract void updateScore(int score);
+    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, int score, boolean running);
 }

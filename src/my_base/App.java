@@ -17,10 +17,14 @@ public class App {
         mainRouter.addRouter("team", new teamRouter());
     }
 
-    // Allows all classes in teh system to access content
+    // Allows all classes in the system to access content
     // entities from everywhere.
     public static AppContent content() {
         return content;
+    }
+
+    public static MainRouter mainRouter() {
+        return mainRouter;
     }
 
     public static Ui UI() {
@@ -39,6 +43,7 @@ public class App {
         System.out.println("Starting UI ...");
         ui.start(mainRouter);
         PeriodicScheduler scheduler = new PeriodicScheduler();
+        scheduler.setPeriodicInterval(33);
         scheduler.setPeriodicLoop(new MyPeriodicLoop());
         System.out.println("Starting periodic scheduler ...");
         scheduler.start();

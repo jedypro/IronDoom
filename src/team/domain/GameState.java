@@ -32,16 +32,21 @@ public class GameState {
         this.status = status;
     }
 
-    // Method to update the game score
+    // Method to update the game score and delegate game-over handling to isGameOver
     public void updateScore(int points) {
         this.score += points;
+        isGameOver();
     }
     // method to advance to the next level
     public void advanceLevel() {
         this.level++;
     }
-    // Check if the game is over
+    // Check if the game is over and update status when needed
     public boolean isGameOver() {
-        return !status || score <= 0;
+        if (this.score <= 0) {
+            this.score = 0;
+            this.status = false;
+        }
+        return !status;
     }
 }

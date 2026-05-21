@@ -20,8 +20,17 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
     }
     
     @Override
+    public boolean checkHit(int px, int py) {
+        double dx = px - getX();
+        double dy = py - getY();
+        return Math.hypot(dx, dy) <= 15.0;
+    }
+
+    @Override
     public void tookHit() {
-        // Implementation for when the interceptor battery is hit
+        System.out.println("InterceptorBattery " + getId() + " was hit and disabled.");
+        setActive(false);
+        missilesAvailable = 0;
     }
 
     @Override
