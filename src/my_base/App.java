@@ -41,7 +41,7 @@ public class App {
         System.out.println("Registering routers ...");
         registerRouters();
         System.out.println("Starting UI ...");
-        ui.start(mainRouter);
+        ui.start(mainRouter);  // This now blocks until UI and backend are ready
         PeriodicScheduler scheduler = new PeriodicScheduler();
         scheduler.setPeriodicInterval(33);
         scheduler.setPeriodicLoop(new MyPeriodicLoop());

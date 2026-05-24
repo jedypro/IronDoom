@@ -9,6 +9,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -34,20 +35,27 @@ public class Ui {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private boolean running = true;
+    private CountDownLatch startupComplete = new CountDownLatch(1);
 
     public void setUiPorts() {
         uiInstance = new TeamUiPortImpl(this);
         TeamUiPort.setInstance(uiInstance);
     }
 
-    public void start(MainRouter mainRouter) {
+    public void start(MainRouter mainRouter) throws InterruptedException {
         this.mainRouter = mainRouter;
         SwingUtilities.invokeLater(() -> {
             createAndShowWindow();
             System.out.println("UI started");
             System.out.println("Calling backend start method via router /team/start ...");
             mainRouter.route("/team/start", Params.of());
+            startupComplete.countDown();
         });
+        
+        // Wait for UI and backend initialization to complete
+        System.out.println("Waiting for UI initialization to complete...");
+        startupComplete.await();
+        System.out.println("UI initialization complete, ready to start scheduler");
     }
 
     private void createAndShowWindow() {

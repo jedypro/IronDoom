@@ -3,6 +3,8 @@ package team.domain;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+
 import shared.ui_ports.TeamUiPort;
 
 public class TeamBackend {
@@ -10,6 +12,7 @@ public class TeamBackend {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
+    private ThreatSpawner spawner;
 
     /**
      * Use ex3UiPort() as a function and not a variable to get the UI port
@@ -20,11 +23,32 @@ public class TeamBackend {
     private TeamUiPort teamUiPort() {
         return TeamUiPort.getInstance();
     }
+    private void threatsRegister(){
+        this.spawner = new ThreatSpawner(this.gameState);
+    
+        // רישום: טיל בליסטי
+        spawner.registerThreatType((id) -> {
+            int level = this.gameState.getLevel();
+            int startX = 0;
+            int startY = ThreadLocalRandom.current().nextInt(0, 200);
+
+            int randomVx = ThreadLocalRandom.current().nextInt(150*level, 500*level);
+
+            int baseVy = level * 5;
+            int randomVy = ThreadLocalRandom.current().nextInt(baseVy, baseVy + 11);
+
+            int length = ThreadLocalRandom.current().nextInt(10, 15);
+            int height = ThreadLocalRandom.current().nextInt(5, 9);
+    
+            return new BallisticMissile(id, startX, startY, randomVx, randomVy, length, height, this.gameState.getLevel(), new BallisticMovementStrategy());
+        });
+    }
 
     // Called once at UI startup
     public void start() {
         System.out.println("TeamBackend started");
         teamUiPort().log("Logging: TeamBackend started");
+        threatsRegister();
 
         // GroundAsset (Conference) placed far right, near bottom
         GroundAsset conference = new GroundAsset(1, "Conference", 1000, 650, 150, 80, gameState);
@@ -34,12 +58,6 @@ public class TeamBackend {
         InterceptorBattery battery = new InterceptorBattery(2, 900, 700, 5);
         damageables.add(battery);
 
-        // Missile spawns at top-left, horizontal throw (vx=400, vy=0)
-        BallisticMissile threat = new BallisticMissile(100, 50, 100, 400, 0, 5, 5, 1,
-                new BallisticMovementStrategy());
-        threats.add(threat);
-
-        System.out.println("Spawned threat " + threat.getId() + " aiming at Conference");
         publishScene();
     }
 
@@ -59,6 +77,10 @@ public class TeamBackend {
     public void doStep(double timeStep) {
         System.out.println("In TeamBackend doStep, timeStep=" + timeStep + " ...");
         updateThreatPositions(timeStep);
+        AbstractThreat newThreat = spawner.spawnThreat(timeStep);
+        if (newThreat != null) {
+            threats.add(newThreat);
+        }
         checkCollisions();
         publishScene();
     }

@@ -1,7 +1,7 @@
 package team.domain;
 
 public class BallisticMovementStrategy implements MovementStrategy {
-    private double gravity = -200.0; // Scaled up negative gravity for visible arc in 2D coords
+    private double gravity = -200; // Scaled up negative gravity for visible arc in 2D coords
     @Override
     public double[] calculateNextPosition(double currentX, double currentY, double vx, double vy, double timeStep) {
         // Simple ballistic motion and velocity calculation
