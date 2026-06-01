@@ -9,7 +9,7 @@ public class MyPeriodicLoop extends PeriodicLoop {
 	public void execute() {
 		// Let the super class do its work first
 		super.execute();
-		System.out.println("Periodic loop tick, elapsedTime=" + elapsedTime());
+		//System.out.println("Periodic loop tick, elapsedTime=" + elapsedTime());
 		App.mainRouter().route("/team/doStep", Params.of(0.03));
 	}
 }

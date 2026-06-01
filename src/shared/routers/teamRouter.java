@@ -16,12 +16,12 @@ public class teamRouter implements SubRouter {
     @Override
     public Object route(String subPath, Params p) {
         // Uncomment next line to see routing commands in console
-        // System.out.println("Routing Ex3: " + subPath + " with params " + p);
+        // //System.out.println("Routing Ex3: " + subPath + " with params " + p);
         switch (subPath) {
 
             // UI calls once on startup
             case "/start":
-                System.out.println("teamRouter: Routing /team/start. Calling backend.start() ...");
+                //System.out.println("teamRouter: Routing /team/start. Calling backend.start() ...");
                 backend.start();
                 return null;
 
@@ -30,6 +30,13 @@ public class teamRouter implements SubRouter {
                 backend.doStep(p.getDouble(0));
                 return null;
             }
+            case "/launch": {
+                int batteryId = p.getInt(0);
+                int angle = p.getInt(1);
+                int power = p.getInt(2);
+                
+                backend.launchInterceptor(batteryId, angle, power);
+                }
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }

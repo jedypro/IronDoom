@@ -21,5 +21,5 @@ public abstract class TeamUiPort {
     public abstract void removeEntity(int id);
     public abstract void triggerExplosion(int x, int y);
     public abstract void updateScore(int score);
-    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, int score, boolean running);
+    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.InterceptorMissile> interceptors,  int score, boolean running);
 }

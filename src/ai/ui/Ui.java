@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import team.domain.AbstractThreat;
 import team.domain.Damageable;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
+import team.domain.InterceptorMissile;
 
 public class Ui {
     private MainRouter mainRouter;
@@ -34,8 +36,11 @@ public class Ui {
     private JLabel statusLabel;
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
+    private final List<InterceptorMissile> interceptors = new ArrayList<>();
+
     private boolean running = true;
     private CountDownLatch startupComplete = new CountDownLatch(1);
+    private int currentSliderAngle = 90;
 
     public void setUiPorts() {
         uiInstance = new TeamUiPortImpl(this);
@@ -46,16 +51,16 @@ public class Ui {
         this.mainRouter = mainRouter;
         SwingUtilities.invokeLater(() -> {
             createAndShowWindow();
-            System.out.println("UI started");
-            System.out.println("Calling backend start method via router /team/start ...");
+            //System.out.println("UI started");
+            //System.out.println("Calling backend start method via router /team/start ...");
             mainRouter.route("/team/start", Params.of());
             startupComplete.countDown();
         });
         
         // Wait for UI and backend initialization to complete
-        System.out.println("Waiting for UI initialization to complete...");
+        //System.out.println("Waiting for UI initialization to complete...");
         startupComplete.await();
-        System.out.println("UI initialization complete, ready to start scheduler");
+        //System.out.println("UI initialization complete, ready to start scheduler");
     }
 
     private void createAndShowWindow() {
@@ -78,7 +83,58 @@ public class Ui {
         frame.setLayout(new BorderLayout());
         frame.add(topPanel, BorderLayout.NORTH);
         frame.add(gameCanvas, BorderLayout.CENTER);
+
+                
+        // create UI for launching interceptor
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+
+        // choose angle, between 90 to 180
+        javax.swing.JSlider angleSlider = new javax.swing.JSlider(90, 180, 90);
+        angleSlider.setMajorTickSpacing(45);
+        angleSlider.setPaintTicks(true);
+        angleSlider.setPaintLabels(true);
+        angleSlider.addChangeListener(e -> {
+        this.currentSliderAngle = angleSlider.getValue();
+        refresh();
+        });
+
+        // choose initial speed between 10 to 100
+        javax.swing.JSlider powerSlider = new javax.swing.JSlider(10, 100, 50);
+        powerSlider.setMajorTickSpacing(20);
+        powerSlider.setPaintTicks(true);
+        powerSlider.setPaintLabels(true);
+
+        // 'fire' button
+        javax.swing.JButton fireButton = new javax.swing.JButton("FIRE!");
+        fireButton.setFont(fireButton.getFont().deriveFont(Font.BOLD, 16f));
+        fireButton.setBackground(Color.RED);
+        fireButton.setForeground(Color.WHITE);
+
+        // listener to the 'fire' button
+        fireButton.addActionListener(e -> {
+            int angle = angleSlider.getValue();
+            int power = powerSlider.getValue()*10;
+            int batteryId=2;
+            // storing the data into 'params'
+            Params params = Params.of(batteryId, angle, power);
+            
+            // sending the command via the router
+            //System.out.println("Launching interceptor: Angle=" + angle + ", Power=" + power);
+            mainRouter.route("/team/launch", params);
+        });
+
+        // designing the UI
+        controlPanel.add(new JLabel("Angle:"));
+        controlPanel.add(angleSlider);
+        controlPanel.add(new JLabel("Power:"));
+        controlPanel.add(powerSlider);
+        controlPanel.add(fireButton);
+
+        // adding the panel to the southern corner
+        frame.add(controlPanel, BorderLayout.NORTH);
+
         frame.setVisible(true);
+
         gameCanvas.startAnimation();
     }
 
@@ -94,11 +150,17 @@ public class Ui {
         }
     }
 
-    public void setScene(List<AbstractThreat> threats, List<Damageable> damageables, int score, boolean running) {
+    public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<InterceptorMissile> interceptors, int score, boolean running) {
         this.threats.clear();
         this.threats.addAll(threats);
         this.damageables.clear();
         this.damageables.addAll(damageables);
+        
+        // Update the local interceptors list for rendering
+        this.interceptors.clear();
+        this.interceptors.addAll(interceptors);
+        
+
         this.running = running;
         updateScore(score);
         showStatus(running ? "Running" : "Game Over");
@@ -165,6 +227,7 @@ public class Ui {
 
             drawGroundAssets(g);
             drawThreats(g);
+            drawInterceptors(g);
             drawExplosions(g);
         }
 
@@ -178,14 +241,34 @@ public class Ui {
                     g.drawString(city.getName(), city.getX() + 2, city.getY() + 14);
                 } else if (damageable instanceof InterceptorBattery) {
                     InterceptorBattery battery = (InterceptorBattery) damageable;
-                    g.setColor(Color.CYAN);
-                    int radius = 20;
-                    g.fillOval(battery.getX() - radius, battery.getY() - radius, radius * 2, radius * 2);
+                    
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    
+                    int bx = battery.getX();
+                    int by = battery.getY();
+                    
+                    //move position to (0,0)
+                    g2d.translate(bx, by);
+                    
+                    g2d.rotate(-Math.toRadians(currentSliderAngle));
+                    
+                   //drawing the battery
+                    g2d.setColor(Color.CYAN);
+                    int boxWidth = 40;
+                    int boxHeight = 20;
+                    g2d.fillRect(0, -boxHeight / 2, boxWidth, boxHeight); // (0,0) הוא בסיס המשגר
+                    
+                    //battery base
+                    g2d.setColor(Color.DARK_GRAY);
+                    g2d.fillOval(-8, -8, 16, 16);
+                    g2d.dispose();
+                    
                     g.setColor(Color.WHITE);
-                    g.drawString("Battery", battery.getX() - radius, battery.getY() - radius - 4);
+                    g.drawString("Battery", bx - 20, by - 25);
+
                     if (!battery.isActive()) {
                         g.setColor(new Color(255, 0, 0, 128));
-                        g.fillOval(battery.getX() - radius, battery.getY() - radius, radius * 2, radius * 2);
+                        g.fillOval(bx - 15, by - 15, 30, 30);
                     }
                 }
             }
@@ -216,4 +299,13 @@ public class Ui {
             g.drawString(message, 20, 20);
         }
     }
+
+    private void drawInterceptors(Graphics g) {
+
+    for (InterceptorMissile interceptor : interceptors) {
+        g.setColor(Color.RED); 
+        int size = 8;
+        g.fillOval(interceptor.getX() - size / 2, interceptor.getY() - size / 2, size, size);
+    }
+}
 }

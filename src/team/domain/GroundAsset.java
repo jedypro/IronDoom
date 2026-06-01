@@ -47,8 +47,8 @@ public class GroundAsset extends IdentifiedObject implements Damageable {
 
     @Override
     public void tookHit() {
-        System.out.println("GroundAsset " + name + " took a hit.");
+        //System.out.println("GroundAsset " + name + " took a hit.");
         gameState.updateScore(-50);
-        System.out.println("Game score is now " + gameState.getScore());
+        //System.out.println("Game score is now " + gameState.getScore());
     }
 }

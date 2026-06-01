@@ -10,6 +10,7 @@ import shared.ui_ports.TeamUiPort;
 public class TeamBackend {
 
     private final List<AbstractThreat> threats = new ArrayList<>();
+    private final List<InterceptorMissile> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
     private ThreatSpawner spawner;
@@ -46,7 +47,7 @@ public class TeamBackend {
 
     // Called once at UI startup
     public void start() {
-        System.out.println("TeamBackend started");
+        //System.out.println("TeamBackend started");
         teamUiPort().log("Logging: TeamBackend started");
         threatsRegister();
 
@@ -69,31 +70,48 @@ public class TeamBackend {
         return Collections.unmodifiableList(damageables);
     }
 
+    public java.util.List<InterceptorMissile> getInterceptors() {
+        return Collections.unmodifiableList(activeInterceptors);
+    }
+
     public GameState getGameState() {
         return gameState;
     }
 
     // UI input events call these via router
     public void doStep(double timeStep) {
-        System.out.println("In TeamBackend doStep, timeStep=" + timeStep + " ...");
+        //System.out.println("In TeamBackend doStep, timeStep=" + timeStep + " ...");
         updateThreatPositions(timeStep);
-        AbstractThreat newThreat = spawner.spawnThreat(timeStep);
+        updateInterceptorPositions(timeStep);
+
+        AbstractThreat newThreat = spawner.spawnThreat(timeStep/2);
         if (newThreat != null) {
             threats.add(newThreat);
         }
+        
         checkCollisions();
         publishScene();
     }
 
     private void publishScene() {
-        teamUiPort().displayScene(getThreats(), getDamageables(), gameState.getScore(), gameState.isStatus());
+        teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), gameState.getScore(), gameState.isStatus());
     }
 
     private void updateThreatPositions(double timeStep) {
         for (AbstractThreat threat : threats) {
             threat.updateTrajectory(timeStep);
-            System.out.println("Threat " + threat.getId() + " moved to (" + threat.getX() + ", " + threat.getY() + ")");
         }
+    }
+
+    private void updateInterceptorPositions(double timeStep){
+        for (InterceptorMissile interceptor : activeInterceptors) {
+            interceptor.updatePosition(timeStep);
+
+            // Deactivate if it goes out of screen bounds
+            if (interceptor.getY() < 0 || interceptor.getX() < 0 || interceptor.getX() > 1920) {
+                interceptor.explode();
+            }
+    }
     }
 
     private void checkCollisions() {
@@ -102,7 +120,7 @@ public class TeamBackend {
             AbstractThreat threat = threatIterator.next();
             for (Damageable damageable : damageables) {
                 if (damageable.checkHit(threat.getX(), threat.getY())) {
-                    System.out.println("Threat " + threat.getId() + " hit a damageable.");
+                    //System.out.println("Threat " + threat.getId() + " hit a damageable.");
                     damageable.tookHit();
                     teamUiPort().removeEntity(threat.getId());
                     teamUiPort().triggerExplosion(threat.getX(), threat.getY());
@@ -113,4 +131,26 @@ public class TeamBackend {
             }
         }
     }
+
+    private InterceptorBattery findBatteryById(int id) {
+    for (Damageable system : damageables) {
+        if (system instanceof InterceptorBattery && ((InterceptorBattery) system).getId() == id) {
+            return (InterceptorBattery) system;
+        }
+    }
+    return null;
+}
+
+   public void launchInterceptor(int batteryId, double angle, double power) {
+    InterceptorBattery battery = findBatteryById(batteryId); 
+    
+    if (battery != null) {
+        
+        InterceptorMissile newMissile = battery.attemptDefense(angle, power);     
+        if (newMissile != null) {
+            this.activeInterceptors.add(newMissile);
+    }
+    }
+}
+
 }

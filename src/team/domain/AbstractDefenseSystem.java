@@ -34,10 +34,6 @@ public abstract class AbstractDefenseSystem extends IdentifiedObject {
         this.y = y;
     }
 
-    public void setActive(boolean active) {
-        isActive = active;
-    }
-
     //Defense method
-    public abstract void attemptDefense();
+    public abstract InterceptorMissile attemptDefense(double angleDegrees, double power);
 }

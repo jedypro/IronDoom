@@ -13,7 +13,7 @@ public class App {
 
     // TO_DO: Register all routers here
     private static void registerRouters() {
-        System.out.println("Registering team router ...");
+        //System.out.println("Registering team router ...");
         mainRouter.addRouter("team", new teamRouter());
     }
 
@@ -32,20 +32,20 @@ public class App {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("App started - Initializing content ...");
+        //System.out.println("App started - Initializing content ...");
         content.initContent();
-        System.out.println("Creating UI instance...");
+        //System.out.println("Creating UI instance...");
         ui = new Ui();
-        System.out.println("Setting UI ports ...");
+        //System.out.println("Setting UI ports ...");
         ui.setUiPorts();
-        System.out.println("Registering routers ...");
+        //System.out.println("Registering routers ...");
         registerRouters();
-        System.out.println("Starting UI ...");
+        //System.out.println("Starting UI ...");
         ui.start(mainRouter);  // This now blocks until UI and backend are ready
         PeriodicScheduler scheduler = new PeriodicScheduler();
         scheduler.setPeriodicInterval(33);
         scheduler.setPeriodicLoop(new MyPeriodicLoop());
-        System.out.println("Starting periodic scheduler ...");
+        //System.out.println("Starting periodic scheduler ...");
         scheduler.start();
     }
 }

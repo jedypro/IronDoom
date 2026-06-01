@@ -36,5 +36,3 @@ public class PeriodicScheduler {
 		  beeperHandle.cancel(true);
 	  }
 }
-
-
