@@ -33,7 +33,7 @@ public class teamRouter implements SubRouter {
             case "/launch": {
                 int batteryId = p.getInt(0);
                 int angle = p.getInt(1);
-                int power = p.getInt(2);
+                int power = 700;
                 
                 backend.launchInterceptor(batteryId, angle, power);
                 }

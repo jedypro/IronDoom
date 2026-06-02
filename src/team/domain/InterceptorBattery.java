@@ -2,11 +2,16 @@ package team.domain;
 
 public class InterceptorBattery extends AbstractDefenseSystem implements Damageable {
     private boolean active = true;
-    private int missilesAvailable = 20; // Default starting ammo
+    private int missilesAvailable=20; // Default starting ammo
     // Constructor
-    public InterceptorBattery(int id, int x, int y, int missilesAvailable) {
+    public InterceptorBattery(int id, int x, int y, int inventory) {
         super(id, x, y);
-        this.missilesAvailable = missilesAvailable;
+        this.missilesAvailable = inventory;
+    }
+
+    //method overloading, for default ammo
+    public InterceptorBattery(int id, int x, int y) {
+        super(id, x, y);
     }
 
     // setters and getters
@@ -47,7 +52,7 @@ public InterceptorMissile attemptDefense(double angleDegrees, double power) {
 
         // Convert angle to radians and calculate velocity components
         // vy is inverted (-) because the UI Y-axis goes downwards
-        double rad = Math.toRadians(angleDegrees);
+        double rad = -Math.toRadians(angleDegrees-180);
         double vx = power * Math.cos(rad);
         double vy = -power * Math.sin(rad);
 

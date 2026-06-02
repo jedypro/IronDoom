@@ -34,13 +34,16 @@ public class Ui {
     private GameCanvas gameCanvas;
     private JLabel scoreLabel;
     private JLabel statusLabel;
+    private int selectedBatteryId = -1;
+    private javax.swing.JComboBox<Integer> batteryComboBox;
+    private javax.swing.JLabel batteryInfoLabel;
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<InterceptorMissile> interceptors = new ArrayList<>();
 
     private boolean running = true;
     private CountDownLatch startupComplete = new CountDownLatch(1);
-    private int currentSliderAngle = 90;
+    private int currentSliderAngle = 45;
 
     public void setUiPorts() {
         uiInstance = new TeamUiPortImpl(this);
@@ -84,53 +87,92 @@ public class Ui {
         frame.add(topPanel, BorderLayout.NORTH);
         frame.add(gameCanvas, BorderLayout.CENTER);
 
-                
-        // create UI for launching interceptor
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-
-        // choose angle, between 90 to 180
-        javax.swing.JSlider angleSlider = new javax.swing.JSlider(90, 180, 90);
+        // === Angle Slider Setup ===
+        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 90, 45);
         angleSlider.setMajorTickSpacing(45);
         angleSlider.setPaintTicks(true);
         angleSlider.setPaintLabels(true);
         angleSlider.addChangeListener(e -> {
-        this.currentSliderAngle = angleSlider.getValue();
-        refresh();
+            this.currentSliderAngle = angleSlider.getValue();
+            refresh(); 
         });
 
-        // choose initial speed between 10 to 100
-        javax.swing.JSlider powerSlider = new javax.swing.JSlider(10, 100, 50);
-        powerSlider.setMajorTickSpacing(20);
-        powerSlider.setPaintTicks(true);
-        powerSlider.setPaintLabels(true);
+        // === Battery Selection Dropdown ===
+        batteryComboBox = new javax.swing.JComboBox<>();
+        batteryComboBox.addActionListener(e -> {
+            Integer selected = (Integer) batteryComboBox.getSelectedItem();
+            if (selected != null) {
+                this.selectedBatteryId = selected;
+                updateBatteryInfoDisplay(); // Refresh info immediately on selection change
+            }
+        });
 
-        // 'fire' button
+        // === Battery Info Label ===
+        batteryInfoLabel = new javax.swing.JLabel("Status: Unknown | Ammo: 0");
+        batteryInfoLabel.setFont(batteryInfoLabel.getFont().deriveFont(Font.BOLD, 14f));
+
+        // === Fire Button Setup ===
         javax.swing.JButton fireButton = new javax.swing.JButton("FIRE!");
         fireButton.setFont(fireButton.getFont().deriveFont(Font.BOLD, 16f));
         fireButton.setBackground(Color.RED);
         fireButton.setForeground(Color.WHITE);
 
-        // listener to the 'fire' button
         fireButton.addActionListener(e -> {
+            if (selectedBatteryId == -1) {
+                System.out.println("Cannot fire: No battery selected.");
+                return;
+            }
             int angle = angleSlider.getValue();
-            int power = powerSlider.getValue()*10;
-            int batteryId=2;
-            // storing the data into 'params'
-            Params params = Params.of(batteryId, angle, power);
+            int power = 60; // Fixed default power
             
-            // sending the command via the router
-            //System.out.println("Launching interceptor: Angle=" + angle + ", Power=" + power);
+            Params params = Params.of(selectedBatteryId, angle, power);
+            System.out.println("Launching from Battery " + selectedBatteryId + " | Angle: " + angle);
             mainRouter.route("/team/launch", params);
         });
 
-        // designing the UI
-        controlPanel.add(new JLabel("Angle:"));
-        controlPanel.add(angleSlider);
-        controlPanel.add(new JLabel("Power:"));
-        controlPanel.add(powerSlider);
-        controlPanel.add(fireButton);
+        // === Global Key Bindings (Arrows & Spacebar) ===
+        javax.swing.JPanel contentPane = (javax.swing.JPanel) frame.getContentPane();
+        javax.swing.InputMap inputMap = contentPane.getInputMap(javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+        javax.swing.ActionMap actionMap = contentPane.getActionMap();
 
-        // adding the panel to the southern corner
+        // Left Arrow
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("LEFT"), "decreaseAngle");
+        actionMap.put("decreaseAngle", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int val = angleSlider.getValue();
+                if (val > angleSlider.getMinimum()) angleSlider.setValue(val - 2);
+            }
+        });
+
+        // Right Arrow
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("RIGHT"), "increaseAngle");
+        actionMap.put("increaseAngle", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int val = angleSlider.getValue();
+                if (val < angleSlider.getMaximum()) angleSlider.setValue(val + 2);
+            }
+        });
+
+        // Spacebar - Simulates a mouse click on the fire button
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("SPACE"), "triggerFire");
+        actionMap.put("triggerFire", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                fireButton.doClick(); 
+            }
+        });
+
+        // === Assemble Control Panel Layout ===
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        controlPanel.add(new JLabel("Select Battery:"));
+        controlPanel.add(batteryComboBox);
+        controlPanel.add(batteryInfoLabel);
+        controlPanel.add(new JLabel("Angle (0-90):"));
+        controlPanel.add(angleSlider);
+        controlPanel.add(fireButton);
+        
         frame.add(controlPanel, BorderLayout.NORTH);
 
         frame.setVisible(true);
@@ -165,6 +207,8 @@ public class Ui {
         updateScore(score);
         showStatus(running ? "Running" : "Game Over");
         refresh();
+        updateBatteryComboBoxItems(damageables);
+        updateBatteryInfoDisplay();
     }
 
     public void triggerExplosionEffect(int x, int y) {
@@ -250,12 +294,12 @@ public class Ui {
                     //move position to (0,0)
                     g2d.translate(bx, by);
                     
-                    g2d.rotate(-Math.toRadians(currentSliderAngle));
+                    g2d.rotate(Math.toRadians(currentSliderAngle-180));
                     
                    //drawing the battery
-                    g2d.setColor(Color.CYAN);
+                    g2d.setColor(Color.GRAY);
                     int boxWidth = 40;
-                    int boxHeight = 20;
+                    int boxHeight = 30;
                     g2d.fillRect(0, -boxHeight / 2, boxWidth, boxHeight); // (0,0) הוא בסיס המשגר
                     
                     //battery base
@@ -304,8 +348,83 @@ public class Ui {
 
     for (InterceptorMissile interceptor : interceptors) {
         g.setColor(Color.RED); 
-        int size = 8;
+        int size = 14;
         g.fillOval(interceptor.getX() - size / 2, interceptor.getY() - size / 2, size, size);
+    }
+}
+
+/**
+ * Dynamically updates the combo box items based on available interceptor batteries.
+ * Rebuilds the list safely without interrupting the user's current selection.
+ */
+private void updateBatteryComboBoxItems(List<Damageable> currentDamageables) {
+    List<Integer> batteryIds = new ArrayList<>();
+    for (Damageable d : currentDamageables) {
+        if (d instanceof InterceptorBattery) {
+            batteryIds.add(((InterceptorBattery) d).getId());
+        }
+    }
+
+    // Check if the dropdown needs to be updated to avoid unnecessary flickering
+    boolean refreshNeeded = batteryComboBox.getItemCount() != batteryIds.size();
+    if (!refreshNeeded) {
+        for (int i = 0; i < batteryComboBox.getItemCount(); i++) {
+            if (!batteryIds.contains(batteryComboBox.getItemAt(i))) {
+                refreshNeeded = true;
+                break;
+            }
+        }
+    }
+
+    if (refreshNeeded) {
+        Object previousSelection = batteryComboBox.getSelectedItem();
+        batteryComboBox.removeAllItems();
+        for (int id : batteryIds) {
+            batteryComboBox.addItem(id);
+        }
+        // Restore previous selection if it still exists
+        if (previousSelection != null && batteryIds.contains(previousSelection)) {
+            batteryComboBox.setSelectedItem(previousSelection);
+        } else if (!batteryIds.isEmpty()) {
+            batteryComboBox.setSelectedIndex(0);
+            this.selectedBatteryId = batteryIds.get(0);
+        }
+    }
+}
+
+/**
+ * Finds the currently selected battery and updates its live status and inventory on the UI.
+ */
+private void updateBatteryInfoDisplay() {
+    if (selectedBatteryId == -1) {
+        batteryInfoLabel.setText("No Battery Available");
+        return;
+    }
+
+    InterceptorBattery selectedBattery = null;
+    for (Damageable d : damageables) {
+        if (d instanceof InterceptorBattery) {
+            InterceptorBattery b = (InterceptorBattery) d;
+            if (b.getId() == selectedBatteryId) {
+                selectedBattery = b;
+                break;
+            }
+        }
+    }
+
+    if (selectedBattery != null) {
+        String status = selectedBattery.isActive() ? "ACTIVE" : "DESTROYED";
+        int ammo = selectedBattery.getMissilesAvailable();
+        batteryInfoLabel.setText(String.format("Status: %s | Interceptors: %d", status, ammo));
+        
+        // Visual indicator if the battery is knocked out
+        if (!selectedBattery.isActive()) {
+            batteryInfoLabel.setForeground(Color.RED);
+        } else {
+            batteryInfoLabel.setForeground(Color.BLUE);
+        }
+    } else {
+        batteryInfoLabel.setText("Selected battery not found");
     }
 }
 }

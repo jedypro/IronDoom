@@ -56,7 +56,7 @@ public class TeamBackend {
         damageables.add(conference);
 
         // InterceptorBattery placed nearby
-        InterceptorBattery battery = new InterceptorBattery(2, 900, 700, 5);
+        InterceptorBattery battery = new InterceptorBattery(2, 900, 700);
         damageables.add(battery);
 
         publishScene();
