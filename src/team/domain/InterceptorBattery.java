@@ -59,7 +59,7 @@ public InterceptorMissile attemptDefense(double angleDegrees, double power) {
         // Create the missile at the battery's current ground position
         InterceptorMissile missile = new InterceptorMissile(this.getX(), this.getY(), vx, vy);
         
-        // Assign the ballistic flight physics behavior
+        // Use the standard ballistic flight path for now.
         missile.setMovementStrategy(new BallisticMovementStrategy());
 
         missilesAvailable--;

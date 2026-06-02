@@ -2,6 +2,7 @@ package team.domain;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -103,29 +104,55 @@ public class TeamBackend {
         }
     }
 
-    private void updateInterceptorPositions(double timeStep){
-        for (InterceptorMissile interceptor : activeInterceptors) {
+    private void updateInterceptorPositions(double timeStep) {
+        Iterator<InterceptorMissile> interceptorIterator = activeInterceptors.iterator();
+        while (interceptorIterator.hasNext()) {
+            InterceptorMissile interceptor = interceptorIterator.next();
             interceptor.updatePosition(timeStep);
 
-            // Deactivate if it goes out of screen bounds
-            if (interceptor.getY() < 0 || interceptor.getX() < 0 || interceptor.getX() > 1920) {
+            if (!interceptor.isActive() || interceptor.getY() < 0 || interceptor.getX() < 0 || interceptor.getX() > 1920) {
                 interceptor.explode();
+                interceptorIterator.remove();
             }
-    }
+        }
     }
 
     private void checkCollisions() {
-        java.util.Iterator<AbstractThreat> threatIterator = threats.iterator();
+        Iterator<AbstractThreat> threatIterator = threats.iterator();
         while (threatIterator.hasNext()) {
             AbstractThreat threat = threatIterator.next();
+
             for (Damageable damageable : damageables) {
                 if (damageable.checkHit(threat.getX(), threat.getY())) {
-                    //System.out.println("Threat " + threat.getId() + " hit a damageable.");
                     damageable.tookHit();
                     teamUiPort().removeEntity(threat.getId());
                     teamUiPort().triggerExplosion(threat.getX(), threat.getY());
                     teamUiPort().updateScore(gameState.getScore());
                     threatIterator.remove();
+                    return;
+                }
+            }
+
+            Iterator<InterceptorMissile> interceptorIterator = activeInterceptors.iterator();
+            while (interceptorIterator.hasNext()) {
+                InterceptorMissile interceptor = interceptorIterator.next();
+                if (!interceptor.isActive()) {
+                    interceptorIterator.remove();
+                    continue;
+                }
+
+                double dx = threat.getX() - interceptor.getX();
+                double dy = threat.getY() - interceptor.getY();
+                double distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 50) {
+                    interceptor.explode();
+                    interceptorIterator.remove();
+                    threatIterator.remove();
+                    teamUiPort().triggerExplosion(
+                        (threat.getX() + interceptor.getX()) / 2,
+                        (threat.getY() + interceptor.getY()) / 2
+                    );
                     return;
                 }
             }
