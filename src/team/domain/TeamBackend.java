@@ -34,10 +34,10 @@ public class TeamBackend {
             int startX = 0;
             int startY = ThreadLocalRandom.current().nextInt(0, 200);
 
-            int randomVx = ThreadLocalRandom.current().nextInt(150*level, 500*level);
-
-            int baseVy = level * 5;
-            int randomVy = ThreadLocalRandom.current().nextInt(baseVy, baseVy + 11);
+            double vxK = 1.4 - (0.4 / level);
+            double vyK = 2.0 - (1.0 / level);
+            int randomVx = ThreadLocalRandom.current().nextInt((int)(140 * vxK), (int)(550 * vxK));
+            int randomVy = ThreadLocalRandom.current().nextInt((int)(5 * vyK), (int)(16 * vyK));
 
             int length = ThreadLocalRandom.current().nextInt(10, 15);
             int height = ThreadLocalRandom.current().nextInt(5, 9);
@@ -198,5 +198,10 @@ public class TeamBackend {
     }
     }
 }
+
+    public void updateSettings(int newLevel) {
+        this.gameState.setLevel(newLevel);
+
+    }
 
 }

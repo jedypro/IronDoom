@@ -1,8 +1,7 @@
 package team.domain;
 
 public class InterceptorBattery extends AbstractDefenseSystem implements Damageable {
-    private boolean active = true;
-    private int missilesAvailable=20; // Default starting ammo
+    private int missilesAvailable = 20; // Default starting ammo
     // Constructor
     public InterceptorBattery(int id, int x, int y, int inventory) {
         super(id, x, y);
@@ -26,14 +25,13 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
     public boolean checkHit(int px, int py) {
         double dx = px - getX();
         double dy = py - getY();
-        return Math.hypot(dx, dy) <= 15.0;
+        return Math.hypot(dx, dy) <= 30;
     }
 
     @Override
     public void tookHit() {
         //System.out.println("InterceptorBattery " + getId() + " was hit and disabled.");
-        active=false;
-        missilesAvailable = 0;
+        this.isActive = false;
     }
 
 
@@ -46,7 +44,7 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
  */
 public InterceptorMissile attemptDefense(double angleDegrees, double power) {
         // Check if the battery is active and has enough ammo
-        if (!active || missilesAvailable == 0) {
+        if (!isActive || missilesAvailable == 0) {
             return null; 
         }
 

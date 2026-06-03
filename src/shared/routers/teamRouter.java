@@ -43,6 +43,12 @@ public class teamRouter implements SubRouter {
                 backend.resetGame();
                 return null;
 
+            case "/updateSettings": {
+                int level = p.getInt(0);
+                backend.updateSettings(level);
+                return null;
+            }
+            
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }

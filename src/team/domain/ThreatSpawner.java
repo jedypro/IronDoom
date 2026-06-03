@@ -10,12 +10,13 @@ public class ThreatSpawner {
     private double timeSinceLastSpawn;
     private GameState gameState;
     private final Random random = new Random();
-    private int threatIdCounter = 1000; 
+    private int threatIdCounter = 10000; 
 
     //constructor
     public ThreatSpawner(GameState gameState) {
         this.gameState = gameState;
-        this.spawnInterval = 1 / this.gameState.getLevel();
+        double level = this.gameState.getLevel();
+        this.spawnInterval = 1/(1+0.25*(level-1)); // for the desired spawn rate
         this.timeSinceLastSpawn = 0;
     }
 
