@@ -34,9 +34,15 @@ public class teamRouter implements SubRouter {
                 int batteryId = p.getInt(0);
                 int angle = p.getInt(1);
                 int power = 700;
-                
+
                 backend.launchInterceptor(batteryId, angle, power);
-                }
+                return null;
+            }
+
+            case "/reset":
+                backend.resetGame();
+                return null;
+
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }

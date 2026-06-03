@@ -13,7 +13,7 @@ public class TeamBackend {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<InterceptorMissile> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
-    private final GameState gameState = new GameState(100, 1, true);
+    private GameState gameState = new GameState(100, 1, true);
     private ThreatSpawner spawner;
 
     /**
@@ -48,19 +48,28 @@ public class TeamBackend {
 
     // Called once at UI startup
     public void start() {
-        //System.out.println("TeamBackend started");
         teamUiPort().log("Logging: TeamBackend started");
+        initializeWorld();
+        publishScene();
+    }
+
+    public void resetGame() {
+        threats.clear();
+        activeInterceptors.clear();
+        damageables.clear();
+        gameState = new GameState(100, 1, true);
+        initializeWorld();
+        publishScene();
+    }
+
+    private void initializeWorld() {
         threatsRegister();
 
-        // GroundAsset (Conference) placed far right, near bottom
-        GroundAsset conference = new GroundAsset(1, "Conference", 1000, 650, 150, 80, gameState);
+        GroundAsset conference = new GroundAsset(1, "Conference", 1000, gameState.getGroundY() - 80, 150, 80, gameState);
         damageables.add(conference);
 
-        // InterceptorBattery placed nearby
         InterceptorBattery battery = new InterceptorBattery(2, 900, 700);
         damageables.add(battery);
-
-        publishScene();
     }
 
     public java.util.List<AbstractThreat> getThreats() {
@@ -99,8 +108,16 @@ public class TeamBackend {
     }
 
     private void updateThreatPositions(double timeStep) {
-        for (AbstractThreat threat : threats) {
+        Iterator<AbstractThreat> threatIterator = threats.iterator();
+        while (threatIterator.hasNext()) {
+            AbstractThreat threat = threatIterator.next();
             threat.updateTrajectory(timeStep);
+
+            if (threat.getY() + threat.getHeight() >= gameState.getGroundY()) {
+                teamUiPort().removeEntity(threat.getId());
+                teamUiPort().triggerExplosion(threat.getX(), threat.getY());
+                threatIterator.remove();
+            }
         }
     }
 
@@ -146,9 +163,11 @@ public class TeamBackend {
                 double distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < 50) {
+                    gameState.updateScore(10);
                     interceptor.explode();
                     interceptorIterator.remove();
                     threatIterator.remove();
+                    teamUiPort().updateScore(gameState.getScore());
                     teamUiPort().triggerExplosion(
                         (threat.getX() + interceptor.getX()) / 2,
                         (threat.getY() + interceptor.getY()) / 2

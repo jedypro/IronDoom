@@ -1,6 +1,7 @@
 package ai.ui;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -27,6 +29,7 @@ import shared.MainRouter;
 import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
+import team.domain.GameState;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
 import team.domain.InterceptorMissile;
@@ -35,7 +38,10 @@ public class Ui {
     private MainRouter mainRouter;
     private TeamUiPortImpl uiInstance;
     private JFrame frame;
+    private CardLayout cardLayout;
+    private JPanel rootPanel;
     private GameCanvas gameCanvas;
+    private JPanel gameOverPanel;
     private JLabel scoreLabel;
     private JLabel statusLabel;
     private int selectedBatteryId = -1;
@@ -44,6 +50,7 @@ public class Ui {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<InterceptorMissile> interceptors = new ArrayList<>();
+    private final GameState gameState = new GameState(100, 1, true);
 
     private boolean running = true;
     private CountDownLatch startupComplete = new CountDownLatch(1);
@@ -77,22 +84,15 @@ public class Ui {
         statusLabel = new JLabel("Status: Running");
         statusLabel.setFont(statusLabel.getFont().deriveFont(14f));
 
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 8));
-        topPanel.add(scoreLabel);
-        topPanel.add(statusLabel);
-
         gameCanvas = new GameCanvas();
         frame.setLayout(new BorderLayout());
-        frame.add(topPanel, BorderLayout.NORTH);
-        frame.add(gameCanvas, BorderLayout.CENTER);
 
-        // === Angle Slider Setup (0-180 Degrees) ===
-        // 0 = ימינה, 90 = למעלה, 180 = שמאלה
-        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 180, 90);
-        angleSlider.setMajorTickSpacing(45);
+        // === Angle Slider Setup (0-90 Degrees) ===
+        // 0 = משוחרר בכיוון שמאלה (קרקעית), 90 = למעלה (אנכי)
+        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 90, 45);
+        angleSlider.setMajorTickSpacing(15);
         angleSlider.setPaintTicks(true);
         angleSlider.setPaintLabels(true);
-        angleSlider.setInverted(true); // הופך את הסליידר כך ששמאל באמת יצביע שמאלה (180)
         angleSlider.addChangeListener(e -> {
             this.currentSliderAngle = angleSlider.getValue();
             refresh(); 
@@ -118,6 +118,43 @@ public class Ui {
         fireButton.setBackground(Color.RED);
         fireButton.setForeground(Color.WHITE);
 
+        JButton homeButton = new JButton("Home");
+        homeButton.setEnabled(false);
+        JButton settingsButton = new JButton("Settings");
+        settingsButton.setEnabled(false);
+        JButton restartButton = new JButton("Restart");
+        restartButton.addActionListener(e -> {
+            if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
+            }
+        });
+
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        controlPanel.add(homeButton);
+        controlPanel.add(settingsButton);
+        controlPanel.add(restartButton);
+        controlPanel.add(scoreLabel);
+        controlPanel.add(statusLabel);
+        controlPanel.add(new JLabel("Select Battery:"));
+        controlPanel.add(batteryComboBox);
+        controlPanel.add(batteryInfoLabel);
+        controlPanel.add(new JLabel("Angle (0-90):"));
+        controlPanel.add(angleSlider);
+        controlPanel.add(fireButton);
+
+        JPanel gameScreen = new JPanel(new BorderLayout());
+        gameScreen.add(controlPanel, BorderLayout.NORTH);
+        gameScreen.add(gameCanvas, BorderLayout.CENTER);
+
+        gameOverPanel = createGameOverPanel();
+        cardLayout = new CardLayout();
+        rootPanel = new JPanel(cardLayout);
+        rootPanel.add(gameScreen, "GAME");
+        rootPanel.add(gameOverPanel, "GAME_OVER");
+
+        frame.setContentPane(rootPanel);
+        cardLayout.show(rootPanel, "GAME");
+
         fireButton.addActionListener(e -> {
             if (selectedBatteryId == -1) {
                 System.out.println("Cannot fire: No battery selected.");
@@ -136,23 +173,21 @@ public class Ui {
         javax.swing.InputMap inputMap = contentPane.getInputMap(javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
         javax.swing.ActionMap actionMap = contentPane.getActionMap();
 
-        // שמאלה צריך להקטין את הזווית, וימינה להגדיל אותה,
-        // כך שהכפתורים יהיו הפוכים מהקונבנציה הקודמת.
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("LEFT"), "aimLeft");
-        actionMap.put("aimLeft", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int val = angleSlider.getValue();
-                if (val > angleSlider.getMinimum()) angleSlider.setValue(val - 5);
-            }
-        });
-
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("RIGHT"), "aimRight");
-        actionMap.put("aimRight", new javax.swing.AbstractAction() {
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("UP"), "aimUp");
+        actionMap.put("aimUp", new javax.swing.AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 int val = angleSlider.getValue();
                 if (val < angleSlider.getMaximum()) angleSlider.setValue(val + 5);
+            }
+        });
+
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("DOWN"), "aimDown");
+        actionMap.put("aimDown", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int val = angleSlider.getValue();
+                if (val > angleSlider.getMinimum()) angleSlider.setValue(val - 5);
             }
         });
 
@@ -164,16 +199,6 @@ public class Ui {
             }
         });
 
-        // === Assemble Control Panel Layout ===
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        controlPanel.add(new JLabel("Select Battery:"));
-        controlPanel.add(batteryComboBox);
-        controlPanel.add(batteryInfoLabel);
-        controlPanel.add(new JLabel("Angle (0-180):"));
-        controlPanel.add(angleSlider);
-        controlPanel.add(fireButton);
-        
-        frame.add(controlPanel, BorderLayout.NORTH);
         frame.setVisible(true);
 
         gameCanvas.startAnimation();
@@ -191,6 +216,57 @@ public class Ui {
         }
     }
 
+    private JPanel createGameOverPanel() {
+        JPanel panel = new JPanel(new java.awt.GridBagLayout());
+        panel.setBackground(new Color(8, 12, 24));
+
+        JLabel title = new JLabel("You lost the battle!");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
+        title.setForeground(Color.WHITE);
+
+        JLabel message = new JLabel("Your score reached 0. Try again or exit.");
+        message.setForeground(new Color(220, 230, 255));
+
+        JButton playAgainButton = new JButton("Play Again");
+        playAgainButton.addActionListener(e -> {
+            if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
+            }
+            showGameScreen();
+        });
+
+        JButton exitButton = new JButton("Exit");
+        exitButton.addActionListener(e -> System.exit(0));
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        buttons.setOpaque(false);
+        buttons.add(playAgainButton);
+        buttons.add(exitButton);
+
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.insets = new java.awt.Insets(0, 0, 12, 0);
+        panel.add(title, c);
+        c.gridy = 1;
+        panel.add(message, c);
+        c.gridy = 2;
+        panel.add(buttons, c);
+        return panel;
+    }
+
+    private void showGameOverScreen() {
+        if (cardLayout != null && rootPanel != null) {
+            cardLayout.show(rootPanel, "GAME_OVER");
+        }
+    }
+
+    private void showGameScreen() {
+        if (cardLayout != null && rootPanel != null) {
+            cardLayout.show(rootPanel, "GAME");
+        }
+    }
+
     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<InterceptorMissile> interceptors, int score, boolean running) {
         this.threats.clear();
         this.threats.addAll(threats);
@@ -203,6 +279,11 @@ public class Ui {
         this.running = running;
         updateScore(score);
         showStatus(running ? "Running" : "Game Over");
+        if (!running || score <= 0) {
+            showGameOverScreen();
+        } else {
+            showGameScreen();
+        }
         refresh();
         updateBatteryComboBoxItems(damageables);
         updateBatteryInfoDisplay();
@@ -286,7 +367,7 @@ public class Ui {
             boolean animationTick = (System.currentTimeMillis() / 100) % 2 == 0;
 
             // 1. קביעת גובה הקרקע המדויק לפי בסיסי הנכסים
-            int groundY = getHeight() - 50;
+            int groundY = gameState.getGroundY();
             if (!damageables.isEmpty()) {
                 int maxAssetY = 0;
                 for (Damageable d : damageables) {
@@ -295,7 +376,7 @@ public class Ui {
                     }
                 }
                 if (maxAssetY > 0) {
-                    groundY = maxAssetY; 
+                    groundY = Math.max(gameState.getGroundY(), maxAssetY);
                 }
             }
 
@@ -330,12 +411,38 @@ public class Ui {
             for (Damageable damageable : damageables) {
                 if (damageable instanceof GroundAsset) {
                     GroundAsset city = (GroundAsset) damageable;
-                    g.setColor(new Color(40, 100, 40));
-                    g.fillRect(city.getX(), city.getY(), city.getWidth(), city.getHeight());
+                    int x = city.getX();
+                    int y = city.getY();
+                    int w = city.getWidth();
+                    int h = city.getHeight();
+
+                    g.setColor(new Color(30, 45, 55));
+                    g.fillRect(x, y, w, h);
+                    g.setColor(new Color(70, 95, 110));
+                    g.fillRect(x + 4, y + 4, w - 8, h - 8);
                     g.setColor(Color.BLACK);
-                    g.drawRect(city.getX(), city.getY(), city.getWidth(), city.getHeight());
-                    g.setColor(Color.WHITE);
-                    g.drawString(city.getName(), city.getX() + 2, city.getY() + 14);
+                    g.drawRect(x, y, w, h);
+                    g.drawRect(x + 4, y + 4, w - 8, h - 8);
+
+                    int blockW = Math.max(18, w / 6);
+                    for (int i = 0; i < w; i += blockW) {
+                        int blockH = 18 + ((i / blockW) % 3) * 10 + (h % 7);
+                        int blockY = y + h - blockH;
+                        g.setColor(new Color(45, 60, 75));
+                        g.fillRect(x + i, blockY, Math.min(blockW, w - i), blockH);
+                        g.setColor(Color.BLACK);
+                        g.drawRect(x + i, blockY, Math.min(blockW, w - i), blockH);
+
+                        g.setColor(new Color(170, 210, 255));
+                        for (int wx = x + i + 4; wx < x + i + Math.min(blockW, w - i) - 4; wx += 8) {
+                            for (int wy = blockY + 4; wy < blockY + blockH - 4; wy += 8) {
+                                g.fillRect(wx, wy, 3, 3);
+                            }
+                        }
+                    }
+
+                    g.setColor(new Color(255, 255, 220));
+                    g.drawString(city.getName(), x + 6, y + 16);
                 } else if (damageable instanceof InterceptorBattery) {
                     InterceptorBattery battery = (InterceptorBattery) damageable;
                     int bx = battery.getX();

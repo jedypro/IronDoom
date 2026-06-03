@@ -40,7 +40,7 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
 /**
  * Attempts to launch an interceptor missile based on target angle and power.
  * * @param missileId    Unique ID generated for the new missile
- * @param angleDegrees Launch angle in degrees (90 to 180)
+ * @param angleDegrees Launch angle in degrees (0 to 90), where 0 is horizontal left and 90 is vertical up
  * @param power        Initial launch velocity/power
  * @return A configured InterceptorMissile instance, or null if launch fails
  */
@@ -50,10 +50,10 @@ public InterceptorMissile attemptDefense(double angleDegrees, double power) {
             return null; 
         }
 
-        // Convert angle to radians and calculate velocity components
-        // vy is inverted (-) because the UI Y-axis goes downwards
-        double rad = -Math.toRadians(angleDegrees-180);
-        double vx = power * Math.cos(rad);
+        // Convert angle to velocity components.
+        // 0° = left along the ground, 90° = straight up.
+        double rad = Math.toRadians(angleDegrees);
+        double vx = -power * Math.cos(rad);
         double vy = -power * Math.sin(rad);
 
         // Create the missile at the battery's current ground position

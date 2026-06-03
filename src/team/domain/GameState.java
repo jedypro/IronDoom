@@ -1,9 +1,12 @@
 package team.domain;
 
 public class GameState {
+    private static final int DEFAULT_GROUND_Y = 730;
+
     private int score;
     private int level;
     private boolean status;
+    private int groundY = DEFAULT_GROUND_Y;
     // Constructor
     public GameState(int score, int level, boolean status) {
         this.score = score;
@@ -20,6 +23,14 @@ public class GameState {
     }
     public boolean isStatus() {
         return status;
+    }
+
+    public int getGroundY() {
+        return groundY;
+    }
+
+    public void setGroundY(int groundY) {
+        this.groundY = groundY;
     }
 
     public void setScore(int score) {
