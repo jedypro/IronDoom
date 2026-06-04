@@ -48,6 +48,13 @@ public class teamRouter implements SubRouter {
                 backend.updateSettings(level);
                 return null;
             }
+            case "/pause":
+                App.getPeriodicLoop().setPaused(true);
+                return null;
+
+            case "/resume":
+                App.getPeriodicLoop().setPaused(false);
+                return null;
             
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);

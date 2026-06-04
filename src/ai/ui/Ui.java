@@ -40,6 +40,7 @@ public class Ui {
     private JFrame frame;
     private CardLayout cardLayout;
     private JPanel rootPanel;
+    private JPanel introPanel;
     private GameCanvas gameCanvas;
     private JPanel gameOverPanel;
     private JPanel settingsPanel;
@@ -54,6 +55,13 @@ public class Ui {
     private final GameState gameState = new GameState(100, 1, true);
 
     private boolean running = true;
+    private int currentLevel = 1;
+    private String currentStatusText = "Paused";
+    private String currentScreen = "INTRO";
+    private String lastScreenBeforeSettings = "INTRO";
+    private java.awt.Image settingsBackgroundImage;
+    private boolean paused = true;
+    private JButton pauseButton;
     private boolean settingsScreenActive = false;
     private javax.swing.Timer aimTimer;
     private int aimDirection = 0; // -1 = left, +1 = right, 0 = none
@@ -91,9 +99,10 @@ public class Ui {
 
         scoreLabel = new JLabel("Score: 100");
         scoreLabel.setFont(scoreLabel.getFont().deriveFont(Font.BOLD, 16f));
-        statusLabel = new JLabel("Status: Running");
+        statusLabel = new JLabel("Status: Paused | Level: 1");
         statusLabel.setFont(statusLabel.getFont().deriveFont(14f));
 
+        settingsBackgroundImage = loadSettingsBackgroundImage();
         gameCanvas = new GameCanvas();
         frame.setLayout(new BorderLayout());
 
@@ -129,9 +138,9 @@ public class Ui {
         fireButton.setForeground(Color.WHITE);
 
         JButton homeButton = new JButton("Home");
-        homeButton.setEnabled(false);
+        homeButton.addActionListener(e -> showIntroScreen());
         JButton settingsButton = new JButton("Settings");
-        settingsButton.addActionListener(e -> showSettingsScreen());
+        settingsButton.addActionListener(e -> showSettingsScreen("GAME"));
         JButton restartButton = new JButton("Restart");
         restartButton.addActionListener(e -> {
             if (mainRouter != null) {
@@ -139,10 +148,35 @@ public class Ui {
             }
         });
 
+        pauseButton = new JButton("Pause");
+        pauseButton.setFont(pauseButton.getFont().deriveFont(Font.BOLD, 14f));
+        pauseButton.addActionListener(e -> {
+            if (!paused) {
+                paused = true;
+                if (mainRouter != null) {
+                    mainRouter.route("/team/pause", Params.of());
+                }
+                if (gameCanvas != null) gameCanvas.pauseAnimation();
+                if (aimTimer != null) aimTimer.stop();
+                pauseButton.setText("Resume");
+                showStatus("Paused");
+            } else {
+                paused = false;
+                if (mainRouter != null) {
+                    mainRouter.route("/team/resume", Params.of());
+                }
+                if (gameCanvas != null) gameCanvas.resumeAnimation();
+                if (aimTimer != null) aimTimer.start();
+                pauseButton.setText("Pause");
+                showStatus("Running");
+            }
+        });
+
         JPanel topControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 8));
         topControls.add(homeButton);
         topControls.add(settingsButton);
         topControls.add(restartButton);
+        topControls.add(pauseButton);
         topControls.add(scoreLabel);
         topControls.add(statusLabel);
 
@@ -165,14 +199,16 @@ public class Ui {
 
         gameOverPanel = createGameOverPanel();
         settingsPanel = createSettingsPanel();
+        introPanel = createIntroPanel();
         cardLayout = new CardLayout();
         rootPanel = new JPanel(cardLayout);
+        rootPanel.add(introPanel, "INTRO");
         rootPanel.add(gameScreen, "GAME");
         rootPanel.add(gameOverPanel, "GAME_OVER");
         rootPanel.add(settingsPanel, "SETTINGS");
 
         frame.setContentPane(rootPanel);
-        cardLayout.show(rootPanel, "GAME");
+        showIntroScreen();
         frame.pack();
         frame.setSize(width, height);
         frame.setLocationRelativeTo(null);
@@ -250,6 +286,15 @@ public class Ui {
             }
         });
 
+        // Toggle pause/resume with Space
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed SPACE"), "togglePause");
+        actionMap.put("togglePause", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if ("GAME".equals(currentScreen) && pauseButton != null) pauseButton.doClick();
+            }
+        });
+
         frame.setVisible(true);
 
         gameCanvas.startAnimation();
@@ -261,15 +306,37 @@ public class Ui {
         }
     }
 
-    public void showStatus(String status) {
+    public void updateLevel(int level) {
+        this.currentLevel = level;
         if (statusLabel != null) {
-            SwingUtilities.invokeLater(() -> statusLabel.setText("Status: " + status));
+            SwingUtilities.invokeLater(this::updateStatusLabel);
+        }
+    }
+
+    public void showStatus(String status) {
+        this.currentStatusText = status;
+        if (statusLabel != null) {
+            SwingUtilities.invokeLater(this::updateStatusLabel);
+        }
+    }
+
+    private void updateStatusLabel() {
+        if (statusLabel != null) {
+            statusLabel.setText("Status: " + currentStatusText + " | Level: " + currentLevel);
         }
     }
 
     private JPanel createGameOverPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout());
-        panel.setBackground(new Color(8, 12, 24));
+        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (settingsBackgroundImage != null) {
+                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
+                }
+            }
+        };
+        panel.setOpaque(false);
 
         JLabel title = new JLabel("You lost the battle!");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
@@ -308,8 +375,16 @@ public class Ui {
     }
 
     private JPanel createSettingsPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout());
-        panel.setBackground(new Color(8, 12, 24));
+        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (settingsBackgroundImage != null) {
+                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
+                }
+            }
+        };
+        panel.setOpaque(false);
 
         JLabel title = new JLabel("Game Settings");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
@@ -324,20 +399,17 @@ public class Ui {
         );
         difficultySpinner.setFont(difficultySpinner.getFont().deriveFont(14f));
 
-        JButton applyButton = new JButton("Apply");
-        applyButton.setFont(applyButton.getFont().deriveFont(Font.BOLD, 14f));
+        JButton applyButton = createStyledButton("Apply", 16);
         applyButton.addActionListener(e -> {
             int level = (Integer) difficultySpinner.getValue();
             if (mainRouter != null) {
                 mainRouter.route("/team/updateSettings", Params.of(level));
             }
-            // Return to game after applying settings
-            showGameScreenFromSettings();
+            returnFromSettings();
         });
 
-        JButton backButton = new JButton("Back to Game");
-        backButton.setFont(backButton.getFont().deriveFont(Font.BOLD, 14f));
-        backButton.addActionListener(e -> showGameScreenFromSettings());
+        JButton backButton = createStyledButton("Back", 16);
+        backButton.addActionListener(e -> returnFromSettings());
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
         buttonPanel.setOpaque(false);
@@ -365,6 +437,73 @@ public class Ui {
         return panel;
     }
 
+    private JPanel createIntroPanel() {
+        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (settingsBackgroundImage != null) {
+                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
+                }
+            }
+        };
+        panel.setOpaque(false);
+
+        JLabel title = new JLabel("IronDoom");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 40f));
+        title.setForeground(Color.WHITE);
+
+        JLabel subtitle = new JLabel("Protect your cities and survive the waves");
+        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 18f));
+        subtitle.setForeground(new Color(220, 220, 220));
+
+        JButton playButton = createStyledButton("Play", 20);
+        playButton.addActionListener(e -> showGameScreenFromIntro());
+
+        JButton settingsButton = createStyledButton("Settings", 20);
+        settingsButton.addActionListener(e -> showSettingsScreen("INTRO"));
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 24, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(playButton);
+        buttonPanel.add(settingsButton);
+
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.insets = new java.awt.Insets(0, 0, 16, 0);
+        panel.add(title, c);
+
+        c.gridy = 1;
+        panel.add(subtitle, c);
+
+        c.gridy = 2;
+        c.insets = new java.awt.Insets(30, 0, 0, 0);
+        panel.add(buttonPanel, c);
+
+        return panel;
+    }
+
+    private java.awt.Image loadSettingsBackgroundImage() {
+        java.net.URL resource = Ui.class.getResource("/ai/ui/Images/open_pic.png");
+        if (resource != null) {
+            return new javax.swing.ImageIcon(resource).getImage();
+        }
+        return new javax.swing.ImageIcon("src/ai/ui/Images/open_pic.png").getImage();
+    }
+
+    private JButton createStyledButton(String text, int fontSize) {
+        JButton button = new JButton(text);
+        button.setFont(button.getFont().deriveFont(Font.BOLD, (float) fontSize));
+        button.setPreferredSize(new java.awt.Dimension(170, 52));
+        button.setBackground(new Color(30, 120, 190));
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorder(javax.swing.BorderFactory.createLineBorder(new Color(255, 255, 255), 2));
+        button.setOpaque(true);
+        return button;
+    }
+
     private void showGameOverScreen() {
         if (cardLayout != null && rootPanel != null) {
             if (gameCanvas != null) {
@@ -379,34 +518,7 @@ public class Ui {
 
     private void showGameScreen() {
         if (cardLayout != null && rootPanel != null) {
-            if (gameCanvas != null) {
-                gameCanvas.resumeAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.start();
-            }
-            cardLayout.show(rootPanel, "GAME");
-        }
-    }
-
-    private void showSettingsScreen() {
-        if (cardLayout != null && rootPanel != null) {
-            settingsScreenActive = true;
-            if (mainRouter != null) {
-                mainRouter.route("/team/pause", Params.of());
-            }
-            if (gameCanvas != null) {
-                gameCanvas.pauseAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.stop();
-            }
-            cardLayout.show(rootPanel, "SETTINGS");
-        }
-    }
-
-    private void showGameScreenFromSettings() {
-        if (cardLayout != null && rootPanel != null) {
+            currentScreen = "GAME";
             settingsScreenActive = false;
             if (mainRouter != null) {
                 mainRouter.route("/team/resume", Params.of());
@@ -417,7 +529,78 @@ public class Ui {
             if (aimTimer != null) {
                 aimTimer.start();
             }
+            paused = false;
+            if (pauseButton != null) pauseButton.setText("Pause");
+            showStatus("Running");
             cardLayout.show(rootPanel, "GAME");
+        }
+    }
+
+    private void showSettingsScreen(String fromScreen) {
+        if (cardLayout != null && rootPanel != null) {
+            settingsScreenActive = true;
+            lastScreenBeforeSettings = fromScreen;
+            if (mainRouter != null) {
+                mainRouter.route("/team/pause", Params.of());
+            }
+            if (gameCanvas != null) {
+                gameCanvas.pauseAnimation();
+            }
+            if (aimTimer != null) {
+                aimTimer.stop();
+            }
+            paused = true;
+            if (pauseButton != null) pauseButton.setText("Resume");
+            showStatus("Paused");
+            cardLayout.show(rootPanel, "SETTINGS");
+        }
+    }
+
+    private void returnFromSettings() {
+        if ("GAME".equals(lastScreenBeforeSettings)) {
+            showGameScreen();
+        } else {
+            showIntroScreen();
+        }
+    }
+
+    private void showGameScreenFromIntro() {
+        if (cardLayout != null && rootPanel != null) {
+            currentScreen = "GAME";
+            settingsScreenActive = false;
+            if (mainRouter != null) {
+                mainRouter.route("/team/resume", Params.of());
+            }
+            if (gameCanvas != null) {
+                gameCanvas.resumeAnimation();
+            }
+            if (aimTimer != null) {
+                aimTimer.start();
+            }
+            paused = false;
+            if (pauseButton != null) pauseButton.setText("Pause");
+            showStatus("Running");
+            cardLayout.show(rootPanel, "GAME");
+        }
+    }
+
+    private void showIntroScreen() {
+        if (cardLayout != null && rootPanel != null) {
+            currentScreen = "INTRO";
+            settingsScreenActive = false;
+            if (mainRouter != null) {
+                mainRouter.route("/team/pause", Params.of());
+            }
+            if (gameCanvas != null) {
+                gameCanvas.pauseAnimation();
+            }
+            if (aimTimer != null) {
+                aimTimer.stop();
+            }
+            paused = true;
+            if (pauseButton != null) pauseButton.setText("Resume");
+            showStatus("Paused");
+            cardLayout.show(rootPanel, "INTRO");
         }
     }
 
@@ -435,7 +618,7 @@ public class Ui {
         showStatus(running ? "Running" : "Game Over");
         if (!running || score <= 0) {
             showGameOverScreen();
-        } else if (!settingsScreenActive) {
+        } else if (!settingsScreenActive && !"INTRO".equals(currentScreen)) {
             showGameScreen();
         }
         refresh();

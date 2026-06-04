@@ -10,6 +10,12 @@ public class App {
     private static MainRouter mainRouter = new MainRouter();
     private static Ui ui;
     private static AppContent content = new AppContent();
+    private static MyPeriodicLoop periodicLoop = new MyPeriodicLoop();
+
+    //get periodic loop
+    public static MyPeriodicLoop getPeriodicLoop() {
+        return periodicLoop;
+    }
 
     // TO_DO: Register all routers here
     private static void registerRouters() {
@@ -44,7 +50,8 @@ public class App {
         ui.start(mainRouter);  // This now blocks until UI and backend are ready
         PeriodicScheduler scheduler = new PeriodicScheduler();
         scheduler.setPeriodicInterval(33);
-        scheduler.setPeriodicLoop(new MyPeriodicLoop());
+        scheduler.setPeriodicLoop(periodicLoop);
+        periodicLoop.setPaused(true);
         //System.out.println("Starting periodic scheduler ...");
         scheduler.start();
     }

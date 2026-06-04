@@ -104,6 +104,7 @@ public class TeamBackend {
     }
 
     private void publishScene() {
+        teamUiPort().updateLevel(gameState.getLevel());
         teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), gameState.getScore(), gameState.isStatus());
     }
 
@@ -201,7 +202,7 @@ public class TeamBackend {
 
     public void updateSettings(int newLevel) {
         this.gameState.setLevel(newLevel);
-
+        publishScene();
     }
 
 }

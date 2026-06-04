@@ -47,6 +47,11 @@ public class TeamUiPortImpl extends TeamUiPort {
     }
 
     @Override
+    public void updateLevel(int level) {
+        SwingUtilities.invokeLater(() -> ui.updateLevel(level));
+    }
+
+    @Override
     public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<InterceptorMissile> interceptors, int score, boolean running) {
         SwingUtilities.invokeLater(() -> ui.setScene(threats, damageables, interceptors, score, running));
     }
