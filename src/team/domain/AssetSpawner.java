@@ -58,7 +58,7 @@ public class AssetSpawner {
     // פונקציית עזר למציאת קואורדינטת X שאינה חופפת לנכסים קיימים
     private int findSafeX() {
         for (int attempts = 0; attempts < 50; attempts++) {
-            int candidateX = ThreadLocalRandom.current().nextInt(50, 1450);
+            int candidateX = ThreadLocalRandom.current().nextInt(50, 1400);
             boolean isSafe = true;
 
             for (int occupiedX : occupiedXPositions) {

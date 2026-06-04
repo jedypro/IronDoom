@@ -811,25 +811,102 @@ public class Ui {
         }
 
         private void drawBackground(Graphics2D g2d, int groundY) {
-            g2d.setColor(new Color(10, 15, 30));
-            g2d.fillRect(0, 0, getWidth(), getHeight());
-            
-            g2d.setColor(new Color(255, 255, 220, 180));
-            for (int i = 0; i < starXs.length; i++) {
-                int sx = starXs[i] % getWidth();
-                int sy = starYs[i] % getHeight();
-                g2d.fillRect(sx, sy, 2, 2);
-            }
-            
             int screenGroundY = toScreenY(groundY);
-            g2d.setColor(new Color(50, 35, 20));
-            g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
-            
-            g2d.setColor(new Color(30, 85, 30));
-            g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
+
+            if (currentLevel >= 7) {
+                // Bright Arctic/Iceberg theme
+                java.awt.GradientPaint gpSky = new java.awt.GradientPaint(0, 0, new Color(180, 220, 255), 0, getHeight(), new Color(220, 240, 255));
+                g2d.setPaint(gpSky);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+
+                // Bright, cool sun
+                g2d.setColor(new Color(255, 255, 240, 200));
+                g2d.fillOval(toScreenX(850), toScreenY(100), toScreenLen(100), toScreenLen(100));
+                g2d.setColor(new Color(255, 255, 240, 100));
+                g2d.fillOval(toScreenX(850) - toScreenLen(15), toScreenY(100) - toScreenLen(15), toScreenLen(130), toScreenLen(130));
+
+                // Ground
+                g2d.setColor(new Color(240, 245, 255)); // Base snow color
+                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
+                
+                // Background icebergs
+                g2d.setColor(new Color(200, 220, 240, 150));
+                int[] iceberg1X = { toScreenX(100), toScreenX(300), toScreenX(200) };
+                int[] iceberg1Y = { screenGroundY, screenGroundY, screenGroundY - toScreenLen(150) };
+                g2d.fillPolygon(iceberg1X, iceberg1Y, 3);
+
+                g2d.setColor(new Color(210, 230, 250, 180));
+                int[] iceberg2X = { toScreenX(700), toScreenX(950), toScreenX(800) };
+                int[] iceberg2Y = { screenGroundY, screenGroundY, screenGroundY - toScreenLen(200) };
+                g2d.fillPolygon(iceberg2X, iceberg2Y, 3);
+
+                g2d.setColor(new Color(250, 250, 255));
+                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
+            } else if (currentLevel >= 4) {
+                // Desert theme - more detailed
+                java.awt.GradientPaint gpSky = new java.awt.GradientPaint(0, 0, new Color(135, 206, 235), 0, getHeight(), new Color(240, 240, 220));
+                g2d.setPaint(gpSky);
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+
+                g2d.setColor(new Color(255, 220, 100));
+                g2d.fillOval(toScreenX(900), toScreenY(600), toScreenLen(80), toScreenLen(80));
+                g2d.setColor(new Color(255, 255, 180, 100));
+                g2d.fillOval(toScreenX(900) - toScreenLen(10), toScreenY(600) - toScreenLen(10), toScreenLen(100), toScreenLen(100));
+
+                g2d.setColor(new Color(210, 180, 140)); 
+                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
+                g2d.setColor(new Color(190, 160, 120));
+                g2d.fillRoundRect(-50, screenGroundY - toScreenLen(10), getWidth() / 2, toScreenLen(40), toScreenLen(80), toScreenLen(80));
+                g2d.fillRoundRect(getWidth() / 2 - 50, screenGroundY - toScreenLen(20), getWidth() / 2, toScreenLen(50), toScreenLen(100), toScreenLen(100));
+
+                g2d.setColor(new Color(230, 200, 150)); 
+                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
+            } else {
+                // Original night theme
+                g2d.setColor(new Color(10, 15, 30));
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                g2d.setColor(new Color(255, 255, 220, 180));
+                for (int i = 0; i < starXs.length; i++) {
+                    int sx = starXs[i] % getWidth();
+                    int sy = starYs[i] % getHeight();
+                    g2d.fillRect(sx, sy, 2, 2);
+                }
+                g2d.setColor(new Color(50, 35, 20));
+                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
+                g2d.setColor(new Color(30, 85, 30));
+                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
+            }
         }
 
         private void drawGroundAssets(Graphics g, int groundY) {
+            Color bldgBg, bldgInner, blockBg, windowColor, battBase, battSelected, tubesColor;
+
+            if (currentLevel >= 7) {
+                bldgBg = new Color(110, 100, 90); // Rusty metal
+                bldgInner = new Color(130, 120, 110); // Lighter rust
+                blockBg = new Color(80, 75, 70); // Dark scrap metal
+                windowColor = new Color(100, 255, 100); // Green glow
+                battBase = new Color(90, 90, 85); // Dark concrete
+                battSelected = new Color(100, 255, 100); // Bright green selection
+                tubesColor = new Color(70, 70, 65); // Dark metal
+            } else if (currentLevel >= 4) {
+                bldgBg = new Color(180, 150, 110); // Sandstone
+                bldgInner = new Color(200, 170, 130); // Lighter sandstone
+                blockBg = new Color(190, 160, 120); // Block color
+                windowColor = new Color(40, 50, 90); // Dark blue for windows
+                battBase = new Color(120, 110, 90); // Metallic gray-brown
+                battSelected = new Color(120, 200, 250); // Light blue selection
+                tubesColor = new Color(100, 90, 80); // Darker metal
+            } else {
+                bldgBg = new Color(30, 45, 55);
+                bldgInner = new Color(70, 95, 110);
+                blockBg = new Color(45, 60, 75);
+                windowColor = new Color(170, 210, 255);
+                battBase = new Color(58, 86, 49);
+                battSelected = new Color(70, 150, 230);
+                tubesColor = new Color(100, 130, 80);
+            }
+
             for (Damageable damageable : damageables) {
                 if (damageable instanceof GroundAsset) {
                     GroundAsset city = (GroundAsset) damageable;
@@ -838,29 +915,64 @@ public class Ui {
                     int sw = toScreenLen(city.getWidth());
                     int sh = toScreenLen(city.getHeight());
 
-                    g.setColor(new Color(30, 45, 55));
+                    g.setColor(bldgBg);
                     g.fillRect(sx, sy, sw, sh);
-                    g.setColor(new Color(70, 95, 110));
+                    g.setColor(bldgInner);
                     g.fillRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
                     g.setColor(Color.BLACK);
                     g.drawRect(sx, sy, sw, sh);
                     g.drawRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
 
-                    int blockW = Math.max(toScreenLen(18), sw / 6);
+                    int blockW = Math.max(toScreenLen(20), sw / 5);
                     for (int i = 0; i < sw; i += blockW) {
-                        int blockH = toScreenLen(18 + ((i / blockW) % 3) * 10 + (city.getHeight() % 7));
-                        int blockY = sy + sh - blockH;
                         int currentBlockW = Math.min(blockW, sw - i);
+                        int blockSeed = (i / blockW);
+                        int citySeed = city.getHeight();
 
-                        g.setColor(new Color(45, 60, 75));
-                        g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                        g.setColor(Color.BLACK);
-                        g.drawRect(sx + i, blockY, currentBlockW, blockH);
-
-                        g.setColor(new Color(170, 210, 255));
-                        for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                            for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                g.fillRect(wx, wy, Math.max(1, toScreenLen(3)), Math.max(1, toScreenLen(3)));
+                        if (currentLevel >= 7) {
+                            // Ruined/scrap building design
+                            int blockH = toScreenLen(10 + (blockSeed % 4) * 8 + (citySeed % 10));
+                            int blockY = sy + sh - blockH;
+                            
+                            // Reverting to simple blocky design to prevent crashes, but with new colors.
+                            g.setColor(blockBg);
+                            g.fillRect(sx + i, blockY, currentBlockW, blockH);
+                            g.setColor(Color.BLACK);
+                            g.drawRect(sx + i, blockY, currentBlockW, blockH);
+                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                    g.setColor(windowColor);
+                                    g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                }
+                            }
+                        } else if (currentLevel >= 4) {
+                            int blockH = toScreenLen(15 + (blockSeed % 2) * 8 + (citySeed % 5));
+                            int blockY = sy + sh - blockH;
+                            if (blockSeed % 3 == 1) {
+                                g.setColor(blockBg); g.fillRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
+                                g.setColor(Color.BLACK); g.drawRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
+                            } else {
+                                g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
+                                g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
+                            }
+                            if (blockSeed % 3 == 0) {
+                                g.setColor(bldgInner); g.fillArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
+                                g.setColor(Color.BLACK); g.drawArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
+                            }
+                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                    g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                }
+                            }
+                        } else {
+                            int blockH = toScreenLen(18 + (blockSeed % 3) * 10 + (citySeed % 7));
+                            int blockY = sy + sh - blockH;
+                            g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
+                            g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
+                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                    g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                }
                             }
                         }
                     }
@@ -887,17 +999,30 @@ public class Ui {
                         int ringW = baseW + glowPadding * 2;
                         int ringH = baseH + glowPadding * 2;
 
-                        gHighlight.setColor(new Color(80, 230, 255, 90));
+                        Color glowColor1, glowColor2, burstColor;
+                        if (currentLevel >= 7) {
+                            // Green glow for wasteland theme
+                            glowColor1 = new Color(100, 255, 100, 90);
+                            glowColor2 = new Color(150, 255, 150, 180);
+                            burstColor = new Color(200, 255, 200, 160);
+                        } else {
+                            // Original cyan for other themes
+                            glowColor1 = new Color(80, 230, 255, 90);
+                            glowColor2 = new Color(150, 245, 255, 180);
+                            burstColor = new Color(190, 245, 255, 160);
+                        }
+
+                        gHighlight.setColor(glowColor1);
                         gHighlight.fillRoundRect(ringX, ringY, ringW, ringH, toScreenLen(24), toScreenLen(24));
 
                         gHighlight.setStroke(new BasicStroke(toScreenLen(4), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                        gHighlight.setColor(new Color(150, 245, 255, 180));
+                        gHighlight.setColor(glowColor2);
                         gHighlight.drawRoundRect(ringX + toScreenLen(3), ringY + toScreenLen(3), ringW - toScreenLen(6), ringH - toScreenLen(6), toScreenLen(24), toScreenLen(24));
 
                         int burstLength = toScreenLen(14);
                         int burstRadius = halfBaseW + toScreenLen(6);
                         gHighlight.setStroke(new BasicStroke(toScreenLen(2), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                        gHighlight.setColor(new Color(190, 245, 255, 160));
+                        gHighlight.setColor(burstColor);
                         for (int i = 0; i < 3; i++) {
                             double angle = Math.PI / 4 + i * Math.PI / 2;
                             int x1 = bx + (int) (Math.cos(angle) * burstRadius);
@@ -910,7 +1035,7 @@ public class Ui {
                         gHighlight.dispose();
                     }
 
-                    g.setColor(isSelected ? new Color(70, 150, 230) : new Color(58, 86, 49));
+                    g.setColor(isSelected ? battSelected : battBase);
                     g.fillRect(bx - halfBaseW, by - baseH, baseW, baseH);
                     g.setColor(Color.BLACK);
                     g.drawRect(bx - halfBaseW, by - baseH, baseW, baseH);
@@ -925,15 +1050,28 @@ public class Ui {
                     double rotationAngle = Math.toRadians(currentSliderAngle - 90);
                     gRotated.rotate(rotationAngle);
 
-                    gRotated.setColor(new Color(100, 130, 80));
-                    for (int i = 0; i < 4; i++) {
-                        int tubeX = toScreenDelta(-25 + (i * 14));
-                        gRotated.fillRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
-                        gRotated.setColor(Color.BLACK);
-                        gRotated.drawRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
-                        
-                        gRotated.setColor(Color.DARK_GRAY);
-                        gRotated.fillRect(tubeX + toScreenLen(2), toScreenDelta(-30), toScreenLen(6), toScreenLen(5));
+                    if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
+                        for (int i = 0; i < 4; i++) {
+                            int tubeX = toScreenDelta(-25 + (i * 14));
+                            gRotated.setColor(tubesColor);
+                            gRotated.fillRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
+                            gRotated.setColor(Color.BLACK);
+                            gRotated.drawRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
+                        }
+                    } else { // Use sharp design ONLY for 4-6
+                        for (int i = 0; i < 4; i++) {
+                            int tubeX = toScreenDelta(-25 + (i * 14));
+                            int[] launcherX = {
+                                tubeX, tubeX + toScreenLen(10), tubeX + toScreenLen(8), tubeX + toScreenLen(2)
+                            };
+                            int[] launcherY = {
+                                toScreenDelta(0), toScreenDelta(0), toScreenDelta(-28), toScreenDelta(-28)
+                            };
+                            gRotated.setColor(tubesColor);
+                            gRotated.fillPolygon(launcherX, launcherY, 4);
+                            gRotated.setColor(Color.BLACK);
+                            gRotated.drawPolygon(launcherX, launcherY, 4);
+                        }
                     }
                     gRotated.dispose();
 
@@ -949,6 +1087,22 @@ public class Ui {
         }
 
         private void drawThreats(Graphics2D g, boolean isTick) {
+            Color uavBodyColor, uavCockpitColor, missileBodyColor;
+
+            if (currentLevel >= 7) { // Arctic
+                uavBodyColor = new Color(110, 100, 90); // Rusty metal
+                uavCockpitColor = new Color(100, 255, 100); // Green glow
+                missileBodyColor = new Color(80, 75, 70); // Dark scrap metal
+            } else if (currentLevel >= 4) { // Desert
+                uavBodyColor = new Color(160, 140, 110); // Sandy brown
+                uavCockpitColor = new Color(255, 180, 50, 200); // Orange glow
+                missileBodyColor = new Color(180, 120, 90); // Dark sand
+            } else { // Default
+                uavBodyColor = new Color(100, 120, 140);
+                uavCockpitColor = new Color(255, 100, 100, 200);
+                missileBodyColor = new Color(200, 80, 80);
+            }
+
             for (AbstractThreat threat : threats) {
                 int tx = toScreenX(threat.getX());
                 int ty = toScreenY(threat.getY());
@@ -973,49 +1127,68 @@ public class Ui {
                 gRotated.translate(tx, ty);
                 gRotated.rotate(angle - Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למטה)
 
-                if (threat instanceof UAV) {
-                    // UAV graphic: compact drone body with rotors and cockpit
-                    gRotated.setColor(new Color(80, 180, 220));
-                    gRotated.fillRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
-                    gRotated.setColor(new Color(30, 90, 120));
-                    gRotated.fillOval(-toScreenLen(6), -toScreenLen(8), toScreenLen(12), toScreenLen(10));
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.drawRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
-
-                    gRotated.setColor(new Color(140, 240, 255, 180));
-                    gRotated.fillOval(-toScreenLen(4), -toScreenLen(6), toScreenLen(8), toScreenLen(6));
-
-                    gRotated.setColor(new Color(180, 220, 255, 180));
-                    gRotated.fillRect(-toScreenLen(18), -toScreenLen(2), toScreenLen(6), toScreenLen(2));
-                    gRotated.fillRect(toScreenLen(12), -toScreenLen(2), toScreenLen(6), toScreenLen(2));
-
-                    gRotated.setColor(new Color(200, 240, 255, 160));
-                    gRotated.fillOval(-toScreenLen(20), -toScreenLen(8), toScreenLen(8), toScreenLen(8));
-                    gRotated.fillOval(toScreenLen(12), -toScreenLen(8), toScreenLen(8), toScreenLen(8));
-
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.drawString("UAV", -toScreenLen(8), toScreenLen(15));
-                } else {
-                    if (isTick) {
-                        gRotated.setColor(Color.ORANGE);
-                        gRotated.fillRect(-toScreenLen(5), -toScreenLen(24), toScreenLen(10), toScreenLen(9));
-                        gRotated.setColor(Color.YELLOW);
-                        gRotated.fillRect(-toScreenLen(2), -toScreenLen(27), toScreenLen(4), toScreenLen(3));
+                if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
+                    Color uavBody, uavCockpit, missileBody;
+                    if (currentLevel >= 7) {
+                        uavBody = new Color(110, 100, 90);
+                        uavCockpit = new Color(100, 255, 100);
+                        missileBody = new Color(80, 75, 70);
                     } else {
-                        gRotated.setColor(Color.ORANGE);
-                        gRotated.fillRect(-toScreenLen(4), -toScreenLen(22), toScreenLen(8), toScreenLen(7));
-                        gRotated.setColor(Color.YELLOW);
-                        gRotated.fillRect(-toScreenLen(2), -toScreenLen(25), toScreenLen(4), toScreenLen(3));
+                        uavBody = new Color(80, 180, 220);
+                        uavCockpit = new Color(30, 90, 120);
+                        missileBody = Color.RED;
                     }
-                    
-                    gRotated.setColor(Color.RED);
-                    gRotated.fillRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.drawRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
-                    
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(6));
-                    gRotated.fillRect(-toScreenLen(2), toScreenLen(16), toScreenLen(4), toScreenLen(4));
+
+                    if (threat instanceof UAV) {
+                        gRotated.setColor(uavBody);
+                        gRotated.fillRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
+                        gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
+                        gRotated.drawRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
+                        gRotated.setColor(uavCockpit);
+                        gRotated.fillOval(-toScreenLen(6), -toScreenLen(8), toScreenLen(12), toScreenLen(10));
+                    } else {
+                        if (isTick) {
+                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 120, 0) : Color.ORANGE);
+                            gRotated.fillRect(-toScreenLen(5), -toScreenLen(10) - toScreenLen(9), toScreenLen(10), toScreenLen(9));
+                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 220, 100) : Color.YELLOW);
+                            gRotated.fillRect(-toScreenLen(2), -toScreenLen(10) - toScreenLen(12), toScreenLen(4), toScreenLen(3));
+                        } else {
+                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 120, 0) : Color.ORANGE);
+                            gRotated.fillRect(-toScreenLen(4), -toScreenLen(10) - toScreenLen(7), toScreenLen(8), toScreenLen(7));
+                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 220, 100) : Color.YELLOW);
+                            gRotated.fillRect(-toScreenLen(2), -toScreenLen(10) - toScreenLen(10), toScreenLen(4), toScreenLen(3));
+                        }
+                        gRotated.setColor(missileBody);
+                        gRotated.fillRect(-toScreenLen(6), -toScreenLen(10), toScreenLen(12), toScreenLen(25));
+                        gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
+                        gRotated.drawRect(-toScreenLen(6), -toScreenLen(10), toScreenLen(12), toScreenLen(25));
+                    }
+                } else { // Use sharp design ONLY for 4-6
+                    if (threat instanceof UAV) {
+                        int[] uavX = { 0, toScreenLen(-8), toScreenLen(-14), toScreenLen(-8), 0, toScreenLen(8), toScreenLen(14), toScreenLen(8) };
+                        int[] uavY = { toScreenLen(-15), toScreenLen(-5), toScreenLen(8), toScreenLen(5), toScreenLen(10), toScreenLen(5), toScreenLen(8), toScreenLen(-5) };
+                        gRotated.setColor(uavBodyColor);
+                        gRotated.fillPolygon(uavX, uavY, 8);
+                        gRotated.setColor(Color.BLACK);
+                        gRotated.drawPolygon(uavX, uavY, 8);
+                        gRotated.setColor(uavCockpitColor);
+                        gRotated.fillOval(-toScreenLen(2), -toScreenLen(12), toScreenLen(4), toScreenLen(6));
+                    } else {
+                        int[] missileX = { 0, toScreenLen(-5), toScreenLen(-5), toScreenLen(-9), toScreenLen(-3), 0, toScreenLen(3), toScreenLen(9), toScreenLen(5), toScreenLen(5) };
+                        int[] missileY = { toScreenLen(20), toScreenLen(12), toScreenLen(-6), toScreenLen(-14), toScreenLen(-12), 0, toScreenLen(-12), toScreenLen(-14), toScreenLen(-6), toScreenLen(12) };
+                        gRotated.setColor(missileBodyColor);
+                        gRotated.fillPolygon(missileX, missileY, 10);
+                        gRotated.setColor(Color.BLACK);
+                        gRotated.drawPolygon(missileX, missileY, 10);
+
+                        int flameY = -toScreenLen(20);
+                        int flameWidth = toScreenLen(10);
+                        int flameHeight = isTick ? toScreenLen(12) : toScreenLen(10);
+                        gRotated.setColor(Color.ORANGE);
+                        gRotated.fillOval(-toScreenLen(4), flameY, flameWidth, flameHeight);
+                        gRotated.setColor(Color.YELLOW);
+                        gRotated.fillOval(-toScreenLen(2), flameY + toScreenLen(2), toScreenLen(6), flameHeight - toScreenLen(2));
+                    }
                 }
 
                 gRotated.dispose();
@@ -1026,6 +1199,15 @@ public class Ui {
         }
 
         private void drawInterceptors(Graphics2D g, boolean isTick) {
+            Color interceptorBodyColor;
+            if (currentLevel >= 7) { // Arctic
+                interceptorBodyColor = new Color(90, 90, 85); // Dark concrete
+            } else if (currentLevel >= 4) { // Desert
+                interceptorBodyColor = new Color(200, 190, 170); // Bone white
+            } else { // Default
+                interceptorBodyColor = Color.LIGHT_GRAY;
+            }
+
             for (InterceptorMissile interceptor : interceptors) {
                 int ix = toScreenX(interceptor.getX());
                 int iy = toScreenY(interceptor.getY());
@@ -1049,26 +1231,45 @@ public class Ui {
                 gRotated.translate(ix, iy);
                 gRotated.rotate(angle + Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למעלה)
 
-                if (isTick) {
-                    gRotated.setColor(Color.CYAN);
-                    gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(10));
-                    gRotated.setColor(Color.WHITE);
-                    gRotated.fillRect(-toScreenLen(2), toScreenLen(20), toScreenLen(4), toScreenLen(6));
-                } else {
-                    gRotated.setColor(Color.CYAN);
-                    gRotated.fillRect(-toScreenLen(3), toScreenLen(10), toScreenLen(6), toScreenLen(8));
-                    gRotated.setColor(Color.WHITE);
-                    gRotated.fillRect(-toScreenLen(1), toScreenLen(18), toScreenLen(2), toScreenLen(6));
+                if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
+                    Color bodyColor, cockpitColor;
+                    if (currentLevel >= 7) {
+                        bodyColor = new Color(90, 90, 85);
+                        cockpitColor = new Color(100, 255, 100);
+                    } else {
+                        bodyColor = Color.LIGHT_GRAY;
+                        cockpitColor = Color.BLUE;
+                    }
+
+                    if (isTick) {
+                        gRotated.setColor(Color.CYAN); gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(10));
+                        gRotated.setColor(Color.WHITE); gRotated.fillRect(-toScreenLen(2), toScreenLen(20), toScreenLen(4), toScreenLen(6));
+                    } else {
+                        gRotated.setColor(Color.CYAN); gRotated.fillRect(-toScreenLen(3), toScreenLen(10), toScreenLen(6), toScreenLen(8));
+                        gRotated.setColor(Color.WHITE); gRotated.fillRect(-toScreenLen(1), toScreenLen(18), toScreenLen(2), toScreenLen(6));
+                    }
+                    gRotated.setColor(bodyColor);
+                    gRotated.fillRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
+                    gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
+                    gRotated.drawRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
+                    gRotated.setColor(cockpitColor);
+                    gRotated.fillRect(-toScreenLen(3), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
+                } else { // Use sharp design ONLY for 4-6
+                    int[] interceptorX = { 0, toScreenLen(-4), toScreenLen(-4), toScreenLen(-8), toScreenLen(-3), 0, toScreenLen(3), toScreenLen(8), toScreenLen(4), toScreenLen(4) };
+                    int[] interceptorY = { toScreenLen(-20), toScreenLen(-12), toScreenLen(6), toScreenLen(14), toScreenLen(12), toScreenLen(18), toScreenLen(12), toScreenLen(14), toScreenLen(6), toScreenLen(-12) };
+                    gRotated.setColor(interceptorBodyColor);
+                    gRotated.fillPolygon(interceptorX, interceptorY, 10);
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.drawPolygon(interceptorX, interceptorY, 10);
+
+                    int flameY = toScreenLen(20);
+                    int flameWidth = toScreenLen(10);
+                    int flameHeight = isTick ? toScreenLen(12) : toScreenLen(10);
+                    gRotated.setColor(new Color(100, 255, 255));
+                    gRotated.fillOval(-toScreenLen(4), flameY, flameWidth, flameHeight);
+                    gRotated.setColor(new Color(190, 255, 255));
+                    gRotated.fillOval(-toScreenLen(2), flameY + toScreenLen(2), toScreenLen(6), flameHeight - toScreenLen(2));
                 }
-                
-                gRotated.setColor(Color.LIGHT_GRAY);
-                gRotated.fillRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
-                gRotated.setColor(Color.BLACK);
-                gRotated.drawRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
-                
-                gRotated.setColor(Color.BLUE);
-                gRotated.fillRect(-toScreenLen(3), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
-                gRotated.fillRect(-toScreenLen(1), -toScreenLen(18), toScreenLen(2), toScreenLen(4));
 
                 gRotated.dispose();
             }
