@@ -33,6 +33,7 @@ import team.domain.GameState;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
 import team.domain.InterceptorMissile;
+import team.domain.UAV;
 
 public class Ui {
     private MainRouter mainRouter;
@@ -888,31 +889,55 @@ public class Ui {
                 gRotated.translate(tx, ty);
                 gRotated.rotate(angle - Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למטה)
 
-                if (isTick) {
-                    gRotated.setColor(Color.ORANGE);
-                    gRotated.fillRect(-toScreenLen(5), -toScreenLen(24), toScreenLen(10), toScreenLen(9));
-                    gRotated.setColor(Color.YELLOW);
-                    gRotated.fillRect(-toScreenLen(2), -toScreenLen(27), toScreenLen(4), toScreenLen(3));
+                if (threat instanceof UAV) {
+                    // UAV graphic: compact drone body with rotors and cockpit
+                    gRotated.setColor(new Color(80, 180, 220));
+                    gRotated.fillRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
+                    gRotated.setColor(new Color(30, 90, 120));
+                    gRotated.fillOval(-toScreenLen(6), -toScreenLen(8), toScreenLen(12), toScreenLen(10));
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.drawRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
+
+                    gRotated.setColor(new Color(140, 240, 255, 180));
+                    gRotated.fillOval(-toScreenLen(4), -toScreenLen(6), toScreenLen(8), toScreenLen(6));
+
+                    gRotated.setColor(new Color(180, 220, 255, 180));
+                    gRotated.fillRect(-toScreenLen(18), -toScreenLen(2), toScreenLen(6), toScreenLen(2));
+                    gRotated.fillRect(toScreenLen(12), -toScreenLen(2), toScreenLen(6), toScreenLen(2));
+
+                    gRotated.setColor(new Color(200, 240, 255, 160));
+                    gRotated.fillOval(-toScreenLen(20), -toScreenLen(8), toScreenLen(8), toScreenLen(8));
+                    gRotated.fillOval(toScreenLen(12), -toScreenLen(8), toScreenLen(8), toScreenLen(8));
+
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.drawString("UAV", -toScreenLen(8), toScreenLen(15));
                 } else {
-                    gRotated.setColor(Color.ORANGE);
-                    gRotated.fillRect(-toScreenLen(4), -toScreenLen(22), toScreenLen(8), toScreenLen(7));
-                    gRotated.setColor(Color.YELLOW);
-                    gRotated.fillRect(-toScreenLen(2), -toScreenLen(25), toScreenLen(4), toScreenLen(3));
+                    if (isTick) {
+                        gRotated.setColor(Color.ORANGE);
+                        gRotated.fillRect(-toScreenLen(5), -toScreenLen(24), toScreenLen(10), toScreenLen(9));
+                        gRotated.setColor(Color.YELLOW);
+                        gRotated.fillRect(-toScreenLen(2), -toScreenLen(27), toScreenLen(4), toScreenLen(3));
+                    } else {
+                        gRotated.setColor(Color.ORANGE);
+                        gRotated.fillRect(-toScreenLen(4), -toScreenLen(22), toScreenLen(8), toScreenLen(7));
+                        gRotated.setColor(Color.YELLOW);
+                        gRotated.fillRect(-toScreenLen(2), -toScreenLen(25), toScreenLen(4), toScreenLen(3));
+                    }
+                    
+                    gRotated.setColor(Color.RED);
+                    gRotated.fillRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.drawRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
+                    
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(6));
+                    gRotated.fillRect(-toScreenLen(2), toScreenLen(16), toScreenLen(4), toScreenLen(4));
                 }
-                
-                gRotated.setColor(Color.RED);
-                gRotated.fillRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
-                gRotated.setColor(Color.BLACK);
-                gRotated.drawRect(-toScreenLen(6), -toScreenLen(15), toScreenLen(12), toScreenLen(25));
-                
-                gRotated.setColor(Color.BLACK);
-                gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(6));
-                gRotated.fillRect(-toScreenLen(2), toScreenLen(16), toScreenLen(4), toScreenLen(4));
 
                 gRotated.dispose();
 
                 g.setColor(Color.WHITE);
-                g.drawString("Threat", tx + toScreenLen(8), ty);
+                g.drawString(threat instanceof UAV ? "UAV" : "Threat", tx + toScreenLen(8), ty);
             }
         }
 

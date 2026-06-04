@@ -44,6 +44,37 @@ public class TeamBackend {
     
             return new BallisticMissile(id, startX, startY, randomVx, randomVy, length, height, this.gameState.getLevel(), new BallisticMovementStrategy());
         });
+
+        // רישום: כטב"ם (UAV)
+        spawner.registerThreatType((id) -> {
+            int level = this.gameState.getLevel();
+            
+            // Spawn on left edge at random altitude
+            int startX = 0;
+            int startY = ThreadLocalRandom.current().nextInt(50, 400);
+
+            // Initial velocities (overridden by strategy)
+            int initialVx = 0;
+            int initialVy = 0;
+
+            // Randomize dimensions
+            int length = ThreadLocalRandom.current().nextInt(15, 25);
+            int height = ThreadLocalRandom.current().nextInt(8, 12);
+
+            // Generate initial random target coordinates
+            int targetX = ThreadLocalRandom.current().nextInt(200, 1800);
+            int targetY = this.gameState.getGroundY();
+
+            // Scale cruising speed based on difficulty
+            double cruisingSpeed = 100.0 + (level * 25.0);
+
+            // Initialize the flight strategy
+            PoweredFlightStrategy strategy = new PoweredFlightStrategy(targetX, targetY, cruisingSpeed);
+
+            // Return the instantiated UAV
+            return new UAV(id, startX, startY, initialVx, initialVy, length, height, level, strategy, level);
+        });
+
     }
 
     // Called once at UI startup
