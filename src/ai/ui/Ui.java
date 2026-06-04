@@ -9,6 +9,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.BasicStroke;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
@@ -38,6 +39,31 @@ import team.domain.UAV;
 public class Ui {
     private MainRouter mainRouter;
     private TeamUiPortImpl uiInstance;
+    
+    // UI configuration constants extracted for maintainability
+    private static final class UIConstants {
+        // Card names
+        static final String CARD_INTRO = "INTRO";
+        static final String CARD_GAME = "GAME";
+        static final String CARD_SETTINGS = "SETTINGS";
+        static final String CARD_GAME_OVER = "GAME_OVER";
+
+        // Default window sizing
+        static final int DEFAULT_MAX_WIDTH = 1200;
+        static final int DEFAULT_MAX_HEIGHT = 800;
+        static final int DEFAULT_MIN_WIDTH = 900;
+        static final int DEFAULT_MIN_HEIGHT = 650;
+
+        // Colors
+        static final Color COLOR_PRIMARY = new Color(30, 120, 190);
+        static final Color COLOR_BACKGROUND = new Color(10, 15, 30);
+        static final Color COLOR_BATTERY = new Color(58, 86, 49);
+        static final Color COLOR_SELECTED_BATTERY = new Color(70, 150, 230);
+
+        // Fonts
+        static final float FONT_SCORE_SIZE = 16f;
+        static final float FONT_TITLE_SIZE = 40f;
+    }
     private JFrame frame;
     private CardLayout cardLayout;
     private JPanel rootPanel;
@@ -210,6 +236,8 @@ public class Ui {
 
         frame.setContentPane(rootPanel);
         showIntroScreen();
+        // wire events separately for clarity
+        setupEventHandlers();
         frame.pack();
         frame.setSize(width, height);
         frame.setLocationRelativeTo(null);
@@ -278,6 +306,22 @@ public class Ui {
             }
         });
 
+        // Cycle defense battery with up/down arrows
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed UP"), "selectPrevBattery");
+        actionMap.put("selectPrevBattery", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if ("GAME".equals(currentScreen)) selectBatteryIndex(-1);
+            }
+        });
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed DOWN"), "selectNextBattery");
+        actionMap.put("selectNextBattery", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if ("GAME".equals(currentScreen)) selectBatteryIndex(+1);
+            }
+        });
+
         // Fire with Z
         inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed Z"), "triggerFire");
         actionMap.put("triggerFire", new javax.swing.AbstractAction() {
@@ -299,6 +343,12 @@ public class Ui {
         frame.setVisible(true);
 
         gameCanvas.startAnimation();
+    }
+
+    // Centralized event wiring entrypoint (will be populated during refactor)
+    private void setupEventHandlers() {
+        // Intentionally left as a placeholder for extracting listeners
+        // Existing listeners are still active in the current codebase.
     }
 
     public void updateScore(int score) {
@@ -826,7 +876,41 @@ public class Ui {
                     int baseH = toScreenLen(15);
                     int halfBaseW = toScreenLen(30);
 
-                    g.setColor(new Color(58, 86, 49));
+                    boolean isSelected = battery.getId() == selectedBatteryId;
+                    if (isSelected) {
+                        Graphics2D gHighlight = (Graphics2D) g.create();
+                        gHighlight.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                        int glowPadding = toScreenLen(10);
+                        int ringX = bx - halfBaseW - glowPadding;
+                        int ringY = by - baseH - glowPadding;
+                        int ringW = baseW + glowPadding * 2;
+                        int ringH = baseH + glowPadding * 2;
+
+                        gHighlight.setColor(new Color(80, 230, 255, 90));
+                        gHighlight.fillRoundRect(ringX, ringY, ringW, ringH, toScreenLen(24), toScreenLen(24));
+
+                        gHighlight.setStroke(new BasicStroke(toScreenLen(4), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        gHighlight.setColor(new Color(150, 245, 255, 180));
+                        gHighlight.drawRoundRect(ringX + toScreenLen(3), ringY + toScreenLen(3), ringW - toScreenLen(6), ringH - toScreenLen(6), toScreenLen(24), toScreenLen(24));
+
+                        int burstLength = toScreenLen(14);
+                        int burstRadius = halfBaseW + toScreenLen(6);
+                        gHighlight.setStroke(new BasicStroke(toScreenLen(2), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        gHighlight.setColor(new Color(190, 245, 255, 160));
+                        for (int i = 0; i < 3; i++) {
+                            double angle = Math.PI / 4 + i * Math.PI / 2;
+                            int x1 = bx + (int) (Math.cos(angle) * burstRadius);
+                            int y1 = by - baseH + (int) (Math.sin(angle) * burstRadius * 0.8);
+                            int x2 = bx + (int) (Math.cos(angle) * (burstRadius + burstLength));
+                            int y2 = by - baseH + (int) (Math.sin(angle) * (burstRadius + burstLength) * 0.8);
+                            gHighlight.drawLine(x1, y1, x2, y2);
+                        }
+
+                        gHighlight.dispose();
+                    }
+
+                    g.setColor(isSelected ? new Color(70, 150, 230) : new Color(58, 86, 49));
                     g.fillRect(bx - halfBaseW, by - baseH, baseW, baseH);
                     g.setColor(Color.BLACK);
                     g.drawRect(bx - halfBaseW, by - baseH, baseW, baseH);
@@ -1085,16 +1169,33 @@ public class Ui {
         if (selectedBattery != null) {
             String status = selectedBattery.isActive() ? "ACTIVE" : "DAMAGED";
             int ammo = selectedBattery.getMissilesAvailable();
-            batteryInfoLabel.setText(String.format("Status: %s | Interceptors: %d", status, ammo));
+            batteryInfoLabel.setText(String.format("Battery %d SELECTED | %s | Interceptors: %d", selectedBatteryId, status, ammo));
             
             if (!selectedBattery.isActive()) {
-                batteryInfoLabel.setForeground(Color.RED);
+                batteryInfoLabel.setForeground(new Color(200, 40, 40));
             } else {
-                batteryInfoLabel.setForeground(Color.BLUE);
+                batteryInfoLabel.setForeground(new Color(20, 90, 180));
             }
         } else {
             batteryInfoLabel.setText("Status: No Battery Available | Ammo: 0");
             batteryInfoLabel.setForeground(Color.BLACK);
+        }
+    }
+
+    private void selectBatteryIndex(int delta) {
+        if (batteryComboBox == null || batteryComboBox.getItemCount() == 0) {
+            return;
+        }
+        int currentIndex = batteryComboBox.getSelectedIndex();
+        if (currentIndex < 0) {
+            currentIndex = 0;
+        }
+        int nextIndex = (currentIndex + delta + batteryComboBox.getItemCount()) % batteryComboBox.getItemCount();
+        batteryComboBox.setSelectedIndex(nextIndex);
+        Integer selected = (Integer) batteryComboBox.getSelectedItem();
+        if (selected != null) {
+            selectedBatteryId = selected;
+            updateBatteryInfoDisplay();
         }
     }
 }

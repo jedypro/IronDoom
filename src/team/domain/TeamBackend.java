@@ -13,8 +13,9 @@ public class TeamBackend {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<InterceptorMissile> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
-    private GameState gameState = new GameState(100, 1, true);
+    private GameState gameState = new GameState(300, 1, true);
     private ThreatSpawner spawner;
+    private AssetSpawner assetSpawner;
 
     /**
      * Use ex3UiPort() as a function and not a variable to get the UI port
@@ -62,7 +63,7 @@ public class TeamBackend {
             int height = ThreadLocalRandom.current().nextInt(8, 12);
 
             // Generate initial random target coordinates
-            int targetX = ThreadLocalRandom.current().nextInt(200, 1800);
+            int targetX = ThreadLocalRandom.current().nextInt(200, 1600);
             int targetY = this.gameState.getGroundY();
 
             // Scale cruising speed based on difficulty
@@ -75,6 +76,19 @@ public class TeamBackend {
             return new UAV(id, startX, startY, initialVx, initialVy, length, height, level, strategy, level);
         });
 
+    }
+    private void assetsRegister() {
+        this.assetSpawner = new AssetSpawner();
+
+        // רישום נכסים רגילים
+        assetSpawner.registerRegularAsset((id, x, groundY) -> 
+            new GroundAsset(id, "City " + id, x, groundY - 80, 150, 80, this.gameState)
+        );
+
+        // רישום מערכות הגנה
+        assetSpawner.registerDefenseSystem((id, x, groundY) -> 
+            new InterceptorBattery(id, x, groundY - 50)
+        );
     }
 
     // Called once at UI startup
@@ -95,12 +109,19 @@ public class TeamBackend {
 
     private void initializeWorld() {
         threatsRegister();
+        assetsRegister();
 
-        GroundAsset conference = new GroundAsset(1, "Conference", 1000, gameState.getGroundY() - 80, 150, 80, gameState);
+        /*GroundAsset conference = new GroundAsset(1, "Conference", 1000, gameState.getGroundY() - 80, 150, 80, gameState);
         damageables.add(conference);
 
         InterceptorBattery battery = new InterceptorBattery(2, 900, 700);
-        damageables.add(battery);
+        damageables.add(battery);*/
+        int level = gameState.getLevel();
+        int groundY = gameState.getGroundY();
+
+        // קריאה לשתי פונקציות הנפרדות
+        damageables.addAll(assetSpawner.spawnDefenseSystems(level, groundY));
+        damageables.addAll(assetSpawner.spawnRegularAssets(level, groundY));
     }
 
     public java.util.List<AbstractThreat> getThreats() {
@@ -233,6 +254,14 @@ public class TeamBackend {
 
     public void updateSettings(int newLevel) {
         this.gameState.setLevel(newLevel);
+        this.damageables.clear();
+        assetsRegister();
+        
+        // הגרלה מחודשת של נכסים לפי הרמה החדשה
+        int groundY = gameState.getGroundY();
+        this.damageables.addAll(assetSpawner.spawnDefenseSystems(newLevel, groundY));
+        this.damageables.addAll(assetSpawner.spawnRegularAssets(newLevel, groundY));
+
         publishScene();
     }
 
