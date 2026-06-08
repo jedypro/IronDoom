@@ -1,7 +1,8 @@
 package team.domain;
 
 public class InterceptorBattery extends AbstractDefenseSystem implements Damageable {
-    private int missilesAvailable = 20; // Default starting ammo
+    private int missilesAvailable = 120; // Default starting ammo
+     public static final int POWER = 1200;
     // Constructor
     public InterceptorBattery(int id, int x, int y, int inventory) {
         super(id, x, y);
@@ -42,26 +43,30 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
  * @param power        Initial launch velocity/power
  * @return A configured InterceptorMissile instance, or null if launch fails
  */
-public InterceptorMissile attemptDefense(double angleDegrees, double power) {
+public DefenseEntity attemptDefense(TargetingParams params) {
         // Check if the battery is active and has enough ammo
         if (!isActive || missilesAvailable == 0) {
             return null; 
         }
 
-        // Convert angle to velocity components.
-        // 0° = left along the ground, 90° = straight up.
-        double rad = Math.toRadians(angleDegrees);
-        double vx = -power * Math.cos(rad);
-        double vy = -power * Math.sin(rad);
+        if(params instanceof BallisticTargetingParams)
+        {
+            // Convert angle to velocity components.
+            // 0° = left along the ground, 90° = straight up.
+            double rad = Math.toRadians(((BallisticTargetingParams) params).getAngle());
+            double vx = -POWER * Math.cos(rad);
+            double vy = -POWER * Math.sin(rad);
 
-        // Create the missile at the battery's current ground position
-        InterceptorMissile missile = new InterceptorMissile(this.getX(), this.getY(), vx, vy);
-        
-        // Use the standard ballistic flight path for now.
-        missile.setMovementStrategy(new BallisticMovementStrategy());
+            // Create the missile at the battery's current ground position
+            InterceptorMissile missile = new InterceptorMissile(this.getX(), this.getY(), vx, vy);
+            
+            // Use the standard ballistic flight path for now.
+            missile.setMovementStrategy(new BallisticMovementStrategy());
 
-        missilesAvailable--;
+            missilesAvailable--;
 
-        return missile;
+            return missile;
+        }
+        return null;
     }
 }

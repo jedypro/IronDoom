@@ -6,16 +6,36 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import my_base.App;
 import shared.ui_ports.TeamUiPort;
 
 public class TeamBackend {
 
     private final List<AbstractThreat> threats = new ArrayList<>();
-    private final List<InterceptorMissile> activeInterceptors = new ArrayList<>();
+    private final List<DefenseEntity> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private GameState gameState = new GameState(300, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
+
+    private double timeSinceLastBarrage = 0;
+    private double timeSinceWarning = 0;
+    private boolean barrageWarningScheduled = false;
+    private int pendingBarrageSize = 0;
+    private double levelElapsedTime = 0;
+    private boolean levelCompleted = false;
+
+    private static final double BARRAGE_INTERVAL_BASE_SECONDS = 40;
+    private static final double BARRAGE_WARNING_DELAY_SECONDS = 3.0;
+    private static final int MIN_BARRAGE_SIZE = 5;
+    private static final int MAX_BARRAGE_SIZE = 8;
+    private static final double BASE_LEVEL_DURATION_SECONDS = 10.0;
+    private static final double LEVEL_DURATION_INCREMENT_SECONDS = 8.0;
+    
+    // Barrage warning system
+    private long lastWarningTime = 0;
+    private static final long WARNING_COOLDOWN_MS = 5000; // Only warn once every 5 seconds
+    private static final int BARRAGE_THRESHOLD = 6; // Warn when 6+ threats are active
 
     /**
      * Use ex3UiPort() as a function and not a variable to get the UI port
@@ -32,7 +52,7 @@ public class TeamBackend {
         // רישום: טיל בליסטי
         spawner.registerThreatType((id) -> {
             int level = this.gameState.getLevel();
-            int startX = 0;
+            int startX = -200; // Spawn off-screen to the left
             int startY = ThreadLocalRandom.current().nextInt(0, 200);
 
             double vxK = 1.4 - (0.4 / level);
@@ -51,7 +71,7 @@ public class TeamBackend {
             int level = this.gameState.getLevel();
             
             // Spawn on left edge at random altitude
-            int startX = 0;
+            int startX = -200;
             int startY = ThreadLocalRandom.current().nextInt(50, 400);
 
             // Initial velocities (overridden by strategy)
@@ -94,6 +114,8 @@ public class TeamBackend {
     // Called once at UI startup
     public void start() {
         teamUiPort().log("Logging: TeamBackend started");
+        resetLevelTimer();
+        resetBarrageTimer();
         initializeWorld();
         publishScene();
     }
@@ -102,9 +124,48 @@ public class TeamBackend {
         threats.clear();
         activeInterceptors.clear();
         damageables.clear();
-        gameState = new GameState(100, 1, true);
+        //gameState = new GameState(100, 1, true);
+        resetLevelTimer();
+        resetBarrageTimer();
         initializeWorld();
         publishScene();
+    }
+
+    public void nextLevel() {
+        gameState.setLevel(gameState.getLevel() + 1);
+        resetLevelTimer();
+        resetBarrageTimer();
+        // Clear active threats and interceptors so the next level starts clean
+        this.threats.clear();
+        this.activeInterceptors.clear();
+
+        // Recreate spawner so spawn interval is recalculated for the new level AND register threat types
+        threatsRegister();
+        // Give a short safe period before new threats spawn (3 seconds)
+        final double POST_LEVEL_SPAWN_DELAY_SECONDS = 0.0;
+        this.spawner.setTimeSinceLastSpawn(-POST_LEVEL_SPAWN_DELAY_SECONDS);
+
+        this.damageables.clear();
+        assetsRegister();
+        int level = gameState.getLevel();
+        int groundY = gameState.getGroundY();
+        this.damageables.addAll(assetSpawner.spawnDefenseSystems(level, groundY));
+        this.damageables.addAll(assetSpawner.spawnRegularAssets(level, groundY));
+
+        App.getPeriodicLoop().setPaused(false);
+        publishScene();
+    }
+
+    private void resetLevelTimer() {
+        levelElapsedTime = 0;
+        levelCompleted = false;
+    }
+
+    private void resetBarrageTimer() {
+        timeSinceLastBarrage = 0;
+        timeSinceWarning = 0;
+        barrageWarningScheduled = false;
+        pendingBarrageSize = 0;
     }
 
     private void initializeWorld() {
@@ -132,7 +193,7 @@ public class TeamBackend {
         return Collections.unmodifiableList(damageables);
     }
 
-    public java.util.List<InterceptorMissile> getInterceptors() {
+    public java.util.List<DefenseEntity> getInterceptors() {
         return Collections.unmodifiableList(activeInterceptors);
     }
 
@@ -146,13 +207,72 @@ public class TeamBackend {
         updateThreatPositions(timeStep);
         updateInterceptorPositions(timeStep);
 
-        AbstractThreat newThreat = spawner.spawnThreat(timeStep/2);
+        AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
         if (newThreat != null) {
             threats.add(newThreat);
         }
-        
+
+        advanceBarrageTimers(timeStep);
+        advanceLevelTimer(timeStep);
+        if(levelCompleted){
+            return;}
         checkCollisions();
+        checkBarrage();
         publishScene();
+    }
+
+    private void advanceBarrageTimers(double timeStep) {
+        if (gameState.getLevel() <= 1) {
+            // Level 1 has no barrages.
+            resetBarrageTimer();
+            return;
+        }
+
+        if (barrageWarningScheduled) {
+            timeSinceWarning += timeStep;
+            if (timeSinceWarning >= BARRAGE_WARNING_DELAY_SECONDS) {
+                timeSinceWarning = 0;
+                barrageWarningScheduled = false;
+                timeSinceLastBarrage = 0;
+                teamUiPort().showWarning("Barrage incoming now: " + pendingBarrageSize + " threats!");
+
+                for (int i = 0; i < pendingBarrageSize; i++) {
+                    AbstractThreat newThreat = spawner.createRandomThreat();
+                    if (newThreat != null) {
+                        threats.add(newThreat);
+                    }
+                }
+            }
+            return;
+        }
+
+        double interval = barrageIntervalForLevel(gameState.getLevel());
+        timeSinceLastBarrage += timeStep;
+        if (timeSinceLastBarrage >= interval) {
+            timeSinceLastBarrage = interval;
+            pendingBarrageSize = ThreadLocalRandom.current().nextInt(MIN_BARRAGE_SIZE, MAX_BARRAGE_SIZE + 1);
+            barrageWarningScheduled = true;
+            timeSinceWarning = 0;
+            teamUiPort().showWarning("Barrage warning: " + pendingBarrageSize + " threats in 3 seconds!");
+        }
+    }
+
+    private double barrageIntervalForLevel(int level) {
+        return BARRAGE_INTERVAL_BASE_SECONDS / level;
+    }
+
+    private void advanceLevelTimer(double timeStep) {
+        if (levelCompleted) {
+            return;
+        }
+
+        levelElapsedTime += timeStep;
+        double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
+        if (levelElapsedTime >= levelDuration) {
+            levelCompleted = true;
+            teamUiPort().showLevelComplete("Level " + gameState.getLevel() + " complete!");
+            App.getPeriodicLoop().setPaused(true);
+        }
     }
 
     private void publishScene() {
@@ -175,12 +295,20 @@ public class TeamBackend {
     }
 
     private void updateInterceptorPositions(double timeStep) {
-        Iterator<InterceptorMissile> interceptorIterator = activeInterceptors.iterator();
+        Iterator<DefenseEntity> interceptorIterator = activeInterceptors.iterator();
         while (interceptorIterator.hasNext()) {
-            InterceptorMissile interceptor = interceptorIterator.next();
+            DefenseEntity interceptor = interceptorIterator.next();
             interceptor.updatePosition(timeStep);
 
-            if (!interceptor.isActive() || interceptor.getY() < 0 || interceptor.getX() < 0 || interceptor.getX() > 1920) {
+            // Only explode once the missile exits the visible screen with margin
+            // World width is 1200, so add buffer before exploding
+            final int WORLD_WIDTH = 1200;
+            final int EXIT_MARGIN = 350; // Buffer before missile fully disappears
+            
+            if (!interceptor.isActive() || 
+                interceptor.getY() < -EXIT_MARGIN || 
+                interceptor.getX() < -EXIT_MARGIN || 
+                interceptor.getX() > WORLD_WIDTH + EXIT_MARGIN) {
                 interceptor.explode();
                 interceptorIterator.remove();
             }
@@ -203,9 +331,9 @@ public class TeamBackend {
                 }
             }
 
-            Iterator<InterceptorMissile> interceptorIterator = activeInterceptors.iterator();
+            Iterator<DefenseEntity> interceptorIterator = activeInterceptors.iterator();
             while (interceptorIterator.hasNext()) {
-                InterceptorMissile interceptor = interceptorIterator.next();
+                DefenseEntity interceptor = interceptorIterator.next();
                 if (!interceptor.isActive()) {
                     interceptorIterator.remove();
                     continue;
@@ -231,6 +359,37 @@ public class TeamBackend {
         }
     }
 
+    private void checkBarrage() {
+        if (threats.size() >= BARRAGE_THRESHOLD) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastWarningTime > WARNING_COOLDOWN_MS) {
+                lastWarningTime = currentTime;
+                
+                // Determine warning message based on threat types
+                int missileCount = 0;
+                int droneCount = 0;
+                for (AbstractThreat threat : threats) {
+                    if (threat instanceof BallisticMissile) {
+                        missileCount++;
+                    } else if (threat instanceof UAV) {
+                        droneCount++;
+                    }
+                }
+                
+                String warningMsg = "⚠ INCOMING BARRAGE! ⚠ ";
+                if (missileCount > 0 && droneCount > 0) {
+                    warningMsg += "Missiles + Drones incoming!";
+                } else if (missileCount > 0) {
+                    warningMsg += "Missile barrage incoming!";
+                } else if (droneCount > 0) {
+                    warningMsg += "Drone swarm incoming!";
+                }
+                
+                teamUiPort().showWarning(warningMsg);
+            }
+        }
+    }
+
     private InterceptorBattery findBatteryById(int id) {
     for (Damageable system : damageables) {
         if (system instanceof InterceptorBattery && ((InterceptorBattery) system).getId() == id) {
@@ -240,12 +399,12 @@ public class TeamBackend {
     return null;
 }
 
-   public void launchInterceptor(int batteryId, double angle, double power) {
+   public void launchInterceptor(int batteryId, double angle) {
     InterceptorBattery battery = findBatteryById(batteryId); 
     
     if (battery != null) {
-        
-        InterceptorMissile newMissile = battery.attemptDefense(angle, power);     
+        TargetingParams params = new BallisticTargetingParams(angle);
+        DefenseEntity newMissile = battery.attemptDefense(params);     
         if (newMissile != null) {
             this.activeInterceptors.add(newMissile);
     }
@@ -254,6 +413,12 @@ public class TeamBackend {
 
     public void updateSettings(int newLevel) {
         this.gameState.setLevel(newLevel);
+        resetLevelTimer();
+        resetBarrageTimer();
+        
+        // Recreate spawner with new level so spawn interval updates and threat types are registered
+        threatsRegister();
+        
         this.damageables.clear();
         assetsRegister();
         

@@ -33,9 +33,8 @@ public class teamRouter implements SubRouter {
             case "/launch": {
                 int batteryId = p.getInt(0);
                 int angle = p.getInt(1);
-                int power = 700;
 
-                backend.launchInterceptor(batteryId, angle, power);
+                backend.launchInterceptor(batteryId, angle);
                 return null;
             }
 
@@ -46,6 +45,10 @@ public class teamRouter implements SubRouter {
             case "/updateSettings": {
                 int level = p.getInt(0);
                 backend.updateSettings(level);
+                return null;
+            }
+            case "/nextLevel": {
+                backend.nextLevel();
                 return null;
             }
             case "/pause":

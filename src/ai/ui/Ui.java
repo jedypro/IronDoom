@@ -30,6 +30,7 @@ import shared.MainRouter;
 import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
+import team.domain.DefenseEntity;
 import team.domain.GameState;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
@@ -47,6 +48,7 @@ public class Ui {
         static final String CARD_GAME = "GAME";
         static final String CARD_SETTINGS = "SETTINGS";
         static final String CARD_GAME_OVER = "GAME_OVER";
+        static final String CARD_LEVEL_COMPLETE = "LEVEL_COMPLETE";
 
         // Default window sizing
         static final int DEFAULT_MAX_WIDTH = 1200;
@@ -70,15 +72,19 @@ public class Ui {
     private JPanel introPanel;
     private GameCanvas gameCanvas;
     private JPanel gameOverPanel;
+    private JPanel levelCompletePanel;
     private JPanel settingsPanel;
+    private javax.swing.JSpinner difficultySpinner;
     private JLabel scoreLabel;
     private JLabel statusLabel;
+    private JLabel warningLabel;
+    private JLabel levelCompleteTitleLabel;
     private int selectedBatteryId = -1;
     private javax.swing.JComboBox<Integer> batteryComboBox;
     private javax.swing.JLabel batteryInfoLabel;
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
-    private final List<InterceptorMissile> interceptors = new ArrayList<>();
+    private final List<DefenseEntity> interceptors = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
 
     private boolean running = true;
@@ -91,9 +97,10 @@ public class Ui {
     private JButton pauseButton;
     private boolean settingsScreenActive = false;
     private javax.swing.Timer aimTimer;
+    private javax.swing.Timer warningTimer;
     private int aimDirection = 0; // -1 = left, +1 = right, 0 = none
     private static final int AIM_INTERVAL_MS = 30;
-    private static final int AIM_DELTA = 2; // degrees per tick
+    private static final int AIM_DELTA = 4; // degrees per tick
     private CountDownLatch startupComplete = new CountDownLatch(1);
     private int currentSliderAngle = 90; // 90 מעלות = מכוון ישר למעלה
 
@@ -128,6 +135,10 @@ public class Ui {
         scoreLabel.setFont(scoreLabel.getFont().deriveFont(Font.BOLD, 16f));
         statusLabel = new JLabel("Status: Paused | Level: 1");
         statusLabel.setFont(statusLabel.getFont().deriveFont(14f));
+        
+        warningLabel = new JLabel("");
+        warningLabel.setFont(warningLabel.getFont().deriveFont(Font.BOLD, 18f));
+        warningLabel.setForeground(Color.RED);
 
         settingsBackgroundImage = loadSettingsBackgroundImage();
         gameCanvas = new GameCanvas();
@@ -135,7 +146,7 @@ public class Ui {
 
         // === Angle Slider Setup (0-90 Degrees) ===
         // 0 = משוחרר בכיוון שמאלה (קרקעית), 90 = למעלה (אנכי)
-        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 90, 45);
+        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 180, 90);
         angleSlider.setMajorTickSpacing(15);
         angleSlider.setPaintTicks(true);
         angleSlider.setPaintLabels(true);
@@ -206,6 +217,7 @@ public class Ui {
         topControls.add(pauseButton);
         topControls.add(scoreLabel);
         topControls.add(statusLabel);
+        topControls.add(warningLabel);
 
         JPanel bottomControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 8));
         bottomControls.add(new JLabel("Select Battery:"));
@@ -225,6 +237,7 @@ public class Ui {
         gameScreen.add(gameCanvas, BorderLayout.CENTER);
 
         gameOverPanel = createGameOverPanel();
+        levelCompletePanel = createLevelCompletePanel();
         settingsPanel = createSettingsPanel();
         introPanel = createIntroPanel();
         cardLayout = new CardLayout();
@@ -232,6 +245,7 @@ public class Ui {
         rootPanel.add(introPanel, "INTRO");
         rootPanel.add(gameScreen, "GAME");
         rootPanel.add(gameOverPanel, "GAME_OVER");
+        rootPanel.add(levelCompletePanel, "LEVEL_COMPLETE");
         rootPanel.add(settingsPanel, "SETTINGS");
 
         frame.setContentPane(rootPanel);
@@ -248,10 +262,9 @@ public class Ui {
                 return;
             }
             int angle = angleSlider.getValue();
-            int power = 120; // Increased default power for faster interceptors
             
-            Params params = Params.of(selectedBatteryId, angle, power);
-            System.out.println("Launching from Battery " + selectedBatteryId + " | Angle: " + angle + " | Power: " + power);
+            Params params = Params.of(selectedBatteryId, angle);
+            System.out.println("Launching from Battery " + selectedBatteryId + " | Angle: " + angle);
             mainRouter.route("/team/launch", params);
         });
 
@@ -331,6 +344,36 @@ public class Ui {
             }
         });
 
+        // Fire three missiles with X (current angle, +4°, -4°)
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed X"), "triggerTripleFire");
+        actionMap.put("triggerTripleFire", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (selectedBatteryId == -1) {
+                    System.out.println("Cannot fire: No battery selected.");
+                    return;
+                }
+                int currentAngle = angleSlider.getValue();
+                
+                // Fire at current angle
+                Params params1 = Params.of(selectedBatteryId, currentAngle);
+                System.out.println("Triple Fire - Missile 1: Battery " + selectedBatteryId + " | Angle: " + currentAngle);
+                mainRouter.route("/team/launch", params1);
+                
+                // Fire at current angle + 4 degrees
+                int angle2 = Math.min(angleSlider.getMaximum(), currentAngle + 4);
+                Params params2 = Params.of(selectedBatteryId, angle2);
+                System.out.println("Triple Fire - Missile 2: Battery " + selectedBatteryId + " | Angle: " + angle2);
+                mainRouter.route("/team/launch", params2);
+                
+                // Fire at current angle - 4 degrees
+                int angle3 = Math.max(angleSlider.getMinimum(), currentAngle - 4);
+                Params params3 = Params.of(selectedBatteryId, angle3);
+                System.out.println("Triple Fire - Missile 3: Battery " + selectedBatteryId + " | Angle: " + angle3);
+                mainRouter.route("/team/launch", params3);
+            }
+        });
+
         // Toggle pause/resume with Space
         inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed SPACE"), "togglePause");
         actionMap.put("togglePause", new javax.swing.AbstractAction() {
@@ -375,6 +418,33 @@ public class Ui {
         if (statusLabel != null) {
             statusLabel.setText("Status: " + currentStatusText + " | Level: " + currentLevel);
         }
+    }
+
+    public void showWarning(String message) {
+        if (warningLabel != null) {
+            SwingUtilities.invokeLater(() -> {
+                warningLabel.setText(message);
+                // Auto-hide warning after 3 seconds
+                if (warningTimer != null) {
+                    warningTimer.stop();
+                }
+                warningTimer = new Timer(3000, e -> warningLabel.setText(""));
+                warningTimer.setRepeats(false);
+                warningTimer.start();
+            });
+        }
+    }
+
+    public void showLevelComplete(String message) {
+        if (levelCompletePanel == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            if (levelCompleteTitleLabel != null) {
+                levelCompleteTitleLabel.setText(message);
+            }
+            showLevelCompleteScreen();
+        });
     }
 
     private JPanel createGameOverPanel() {
@@ -425,6 +495,50 @@ public class Ui {
         return panel;
     }
 
+    private JPanel createLevelCompletePanel() {
+        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(new Color(10, 15, 30));
+                g.fillRect(0, 0, getWidth(), getHeight());
+            }
+        };
+        panel.setOpaque(true);
+
+        JLabel title = new JLabel("You Win!");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 42f));
+        title.setForeground(Color.WHITE);
+        levelCompleteTitleLabel = title;
+
+        JLabel message = new JLabel("Congratulations! You completed the level.");
+        message.setFont(message.getFont().deriveFont(Font.PLAIN, 20f));
+        message.setForeground(new Color(220, 230, 255));
+
+        JButton nextLevelButton = createStyledButton("To the next level", 18);
+        nextLevelButton.addActionListener(e -> {
+            if (mainRouter != null) {
+                mainRouter.route("/team/nextLevel", Params.of());
+            }
+            showGameScreen();
+        });
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(nextLevelButton);
+
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.insets = new java.awt.Insets(0, 0, 24, 0);
+        panel.add(title, c);
+        c.gridy = 1;
+        panel.add(message, c);
+        c.gridy = 2;
+        panel.add(buttonPanel, c);
+        return panel;
+    }
+
     private JPanel createSettingsPanel() {
         JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
             @Override
@@ -448,6 +562,7 @@ public class Ui {
         javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
             new javax.swing.SpinnerNumberModel(1, 1, 10, 1)
         );
+        this.difficultySpinner = difficultySpinner;
         difficultySpinner.setFont(difficultySpinner.getFont().deriveFont(14f));
 
         JButton applyButton = createStyledButton("Apply", 16);
@@ -567,6 +682,23 @@ public class Ui {
         }
     }
 
+    private void showLevelCompleteScreen() {
+        if (cardLayout != null && rootPanel != null) {
+            currentScreen = "LEVEL_COMPLETE";
+            settingsScreenActive = false;
+            if (gameCanvas != null) {
+                gameCanvas.pauseAnimation();
+            }
+            if (aimTimer != null) {
+                aimTimer.stop();
+            }
+            paused = true;
+            if (pauseButton != null) pauseButton.setText("Resume");
+            showStatus("Level Complete");
+            cardLayout.show(rootPanel, "LEVEL_COMPLETE");
+        }
+    }
+
     private void showGameScreen() {
         if (cardLayout != null && rootPanel != null) {
             currentScreen = "GAME";
@@ -591,6 +723,10 @@ public class Ui {
         if (cardLayout != null && rootPanel != null) {
             settingsScreenActive = true;
             lastScreenBeforeSettings = fromScreen;
+            // Update spinner to show current level from backend
+            if (difficultySpinner != null && mainRouter != null) {
+                difficultySpinner.setValue(currentLevel);
+            }
             if (mainRouter != null) {
                 mainRouter.route("/team/pause", Params.of());
             }
@@ -620,6 +756,7 @@ public class Ui {
             currentScreen = "GAME";
             settingsScreenActive = false;
             if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
                 mainRouter.route("/team/resume", Params.of());
             }
             if (gameCanvas != null) {
@@ -655,7 +792,45 @@ public class Ui {
         }
     }
 
-    public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<InterceptorMissile> interceptors, int score, boolean running) {
+    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
+        this.threats.clear();
+        this.threats.addAll(threats);
+        this.damageables.clear();
+        this.damageables.addAll(damageables);
+        
+        this.interceptors.clear();
+        this.interceptors.addAll(interceptors);
+        
+        this.running = running;
+        updateScore(score);
+        showStatus(running ? "Running" : "Game Over");
+        if (!running || score <= 0) {
+            showGameOverScreen();
+        } else if (!settingsScreenActive && !"INTRO".equals(currentScreen) && !UIConstants.CARD_LEVEL_COMPLETE.equals(currentScreen)) {
+            showGameScreen();
+        }
+        refresh();
+        updateBatteryComboBoxItems(damageables);
+        updateBatteryInfoDisplay();
+    }
+
+    public void triggerExplosionEffect(int x, int y) {
+        if (gameCanvas != null) {
+            gameCanvas.addExplosion(x, y);
+        }
+    }
+
+    public void refresh() {
+        if (gameCanvas != null) {
+            gameCanvas.repaint();
+        }
+    }
+
+     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
+        // Ignore incoming game state if we are currently displaying the victory screen
+        if ("LEVEL_COMPLETE".equals(this.currentScreen)) {
+        return; 
+        }
         this.threats.clear();
         this.threats.addAll(threats);
         this.damageables.clear();
@@ -676,19 +851,7 @@ public class Ui {
         updateBatteryComboBoxItems(damageables);
         updateBatteryInfoDisplay();
     }
-
-    public void triggerExplosionEffect(int x, int y) {
-        if (gameCanvas != null) {
-            gameCanvas.addExplosion(x, y);
-        }
-    }
-
-    public void refresh() {
-        if (gameCanvas != null) {
-            gameCanvas.repaint();
-        }
-    }
-
+    
     private static class Explosion {
         final int x;
         final int y;
@@ -1208,8 +1371,9 @@ public class Ui {
                 interceptorBodyColor = Color.LIGHT_GRAY;
             }
 
-            for (InterceptorMissile interceptor : interceptors) {
-                int ix = toScreenX(interceptor.getX());
+            for (DefenseEntity interceptor : interceptors) {
+                if(interceptor instanceof InterceptorMissile)
+                {int ix = toScreenX(interceptor.getX());
                 int iy = toScreenY(interceptor.getY());
                 int id = interceptor.getId();
                 
@@ -1231,7 +1395,7 @@ public class Ui {
                 gRotated.translate(ix, iy);
                 gRotated.rotate(angle + Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למעלה)
 
-                if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
+                if (currentLevel <= 3 || currentLevel >= 7) { 
                     Color bodyColor, cockpitColor;
                     if (currentLevel >= 7) {
                         bodyColor = new Color(90, 90, 85);
@@ -1251,9 +1415,9 @@ public class Ui {
                     gRotated.setColor(bodyColor);
                     gRotated.fillRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
                     gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
-                    gRotated.drawRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
+                    gRotated.drawRect(-toScreenLen(10), -toScreenLen(14), toScreenLen(8), toScreenLen(20));
                     gRotated.setColor(cockpitColor);
-                    gRotated.fillRect(-toScreenLen(3), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
+                    gRotated.fillRect(-toScreenLen(5), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
                 } else { // Use sharp design ONLY for 4-6
                     int[] interceptorX = { 0, toScreenLen(-4), toScreenLen(-4), toScreenLen(-8), toScreenLen(-3), 0, toScreenLen(3), toScreenLen(8), toScreenLen(4), toScreenLen(4) };
                     int[] interceptorY = { toScreenLen(-20), toScreenLen(-12), toScreenLen(6), toScreenLen(14), toScreenLen(12), toScreenLen(18), toScreenLen(12), toScreenLen(14), toScreenLen(6), toScreenLen(-12) };
@@ -1272,7 +1436,7 @@ public class Ui {
                 }
 
                 gRotated.dispose();
-            }
+            }}
         }
 
         private void drawExplosions(Graphics g) {

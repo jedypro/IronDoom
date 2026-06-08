@@ -7,6 +7,7 @@ import javax.swing.SwingUtilities;
 import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
+import team.domain.DefenseEntity;
 import team.domain.InterceptorMissile;
 
 public class TeamUiPortImpl extends TeamUiPort {
@@ -52,7 +53,17 @@ public class TeamUiPortImpl extends TeamUiPort {
     }
 
     @Override
-    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<InterceptorMissile> interceptors, int score, boolean running) {
+    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<DefenseEntity> interceptors, int score, boolean running) {
         SwingUtilities.invokeLater(() -> ui.setScene(threats, damageables, interceptors, score, running));
+    }
+
+    @Override
+    public void showWarning(String message) {
+        SwingUtilities.invokeLater(() -> ui.showWarning(message));
+    }
+
+    @Override
+    public void showLevelComplete(String message) {
+        SwingUtilities.invokeLater(() -> ui.showLevelComplete(message));
     }
 }

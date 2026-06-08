@@ -2,7 +2,7 @@ package team.domain;
 
 import base.IdentifiedObject;
 
-public class InterceptorMissile extends IdentifiedObject {
+public class InterceptorMissile extends IdentifiedObject implements DefenseEntity {
     
     private double x;
     private double y;

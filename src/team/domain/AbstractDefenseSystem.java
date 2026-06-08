@@ -35,5 +35,5 @@ public abstract class AbstractDefenseSystem extends IdentifiedObject {
     }
 
     //Defense method
-    public abstract InterceptorMissile attemptDefense(double angleDegrees, double power);
+    public abstract DefenseEntity attemptDefense(TargetingParams params);
 }

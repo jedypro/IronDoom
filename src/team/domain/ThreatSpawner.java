@@ -42,8 +42,8 @@ public class ThreatSpawner {
         this.availableThreats.add(creator);
     }
 
-    // generat new threat if enough time has passed
-    private AbstractThreat createRandomThreat(){
+    // generate a random threat of a registered type
+    public AbstractThreat createRandomThreat(){
         if (availableThreats.isEmpty()) {
             return null; 
         }
