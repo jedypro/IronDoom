@@ -107,9 +107,26 @@ public class TeamBackend {
         this.assetSpawner = new AssetSpawner();
 
         // רישום נכסים רגילים
-        assetSpawner.registerRegularAsset((id, x, groundY) ->
-            new GroundAsset(id, "City " + id, x, groundY - 80, 150, 80, this.gameState)
-        );
+        // 1. רישום מתכון לעיר (פרופורציות רגילות, גודל משתנה מעט)
+        assetSpawner.registerRegularAsset((id, x, groundY) -> {
+            int width = ThreadLocalRandom.current().nextInt(130, 170);
+            int height = ThreadLocalRandom.current().nextInt(70, 90);
+            return new GroundAsset(id, "City " + id, x, groundY - height, width, height, this.gameState);
+        });
+
+        // 2. רישום מתכון למפעל (צר וגבוה יותר)
+        assetSpawner.registerRegularAsset((id, x, groundY) -> {
+            int width = ThreadLocalRandom.current().nextInt(90, 120);
+            int height = ThreadLocalRandom.current().nextInt(90, 130);
+            return new GroundAsset(id, "Factory " + id, x, groundY - height, width, height, this.gameState);
+        });
+
+        // 3. רישום מתכון לבסיס צבאי (רחב מאוד ונמוך)
+        assetSpawner.registerRegularAsset((id, x, groundY) -> {
+            int width = ThreadLocalRandom.current().nextInt(180, 240);
+            int height = ThreadLocalRandom.current().nextInt(40, 60);
+            return new GroundAsset(id, "Military Base " + id, x, groundY - height, width, height, this.gameState);
+        });
 
         // רישום מערכות הגנה
         assetSpawner.registerDefenseSystem((id, x, groundY) ->
