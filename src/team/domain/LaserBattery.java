@@ -1,0 +1,58 @@
+package team.domain;
+
+import java.util.UUID;
+
+public class LaserBattery extends AbstractDefenseSystem implements Damageable {
+    private int laserChargesAvailable = 50; // Default starting ammo for laser
+    public static final double LASER_RANGE = 1500.0; // How far the laser reaches
+    public static final double LASER_DURATION_SECONDS = 0.2; // How long the laser stays visible
+
+    // Constructor
+    public LaserBattery(int id, int x, int y, int inventory) {
+        super(id, x, y);
+        this.laserChargesAvailable = inventory;
+    }
+
+    // method overloading, for default ammo
+    public LaserBattery(int id, int x, int y) {
+        super(id, x, y);
+    }
+
+    // setters and getters
+    public int getLaserChargesAvailable() {
+        return laserChargesAvailable;
+    }
+
+    public void setLaserChargesAvailable(int laserChargesAvailable) {
+        this.laserChargesAvailable = laserChargesAvailable;
+    }
+
+    @Override
+    public boolean checkHit(int px, int py) {
+        double dx = px - getX();
+        double dy = py - getY();
+        return Math.hypot(dx, dy) <= 30; // Assuming same hit radius as InterceptorBattery
+    }
+
+    @Override
+    public void tookHit() {
+        this.isActive = false;
+    }
+
+    @Override
+    public DefenseEntity attemptDefense(TargetingParams params) {
+        // Check if the battery is active and has enough ammo
+        if (!isActive || laserChargesAvailable == 0) {
+            return null;
+        }
+
+        if (params instanceof LaserTargetingParams) {
+            double angle = ((LaserTargetingParams) params).getAngle();
+            // Create a LightShield at the battery's position
+            LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this.getX(), this.getY(), angle, LASER_RANGE, LASER_DURATION_SECONDS);
+            laserChargesAvailable--; // Lasers consume ammo
+            return laser;
+        }
+        return null; // This battery only fires lasers
+    }
+}
