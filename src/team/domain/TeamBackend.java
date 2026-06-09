@@ -184,11 +184,6 @@ public class TeamBackend {
         threatsRegister();
         assetsRegister();
 
-        /*GroundAsset conference = new GroundAsset(1, "Conference", 1000, gameState.getGroundY() - 80, 150, 80, gameState);
-        damageables.add(conference);
-
-        InterceptorBattery battery = new InterceptorBattery(2, 900, 700);
-        damageables.add(battery);*/
         int level = gameState.getLevel();
         int groundY = gameState.getGroundY();
 
@@ -289,7 +284,7 @@ public class TeamBackend {
     }
 
     private void advanceLevelTimer(double timeStep) {
-        if (levelCompleted) {
+        if (levelCompleted || !gameState.isStatus()) {
             return;
         }
 

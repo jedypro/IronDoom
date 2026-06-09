@@ -1170,7 +1170,7 @@ public class Ui {
                         }
                     }
 
-                    g.setColor(new Color(255, 255, 220));
+                    g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
                     g.drawString(city.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
                 } else if (damageable instanceof InterceptorBattery) {
                     InterceptorBattery battery = (InterceptorBattery) damageable;
@@ -1268,10 +1268,10 @@ public class Ui {
                     }
                     gRotated.dispose();
 
-                    g.setColor(Color.WHITE);
+                    g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
                     g.drawString("Battery", bx - toScreenLen(20), by - toScreenLen(45));
                     int missiles = battery.getMissilesAvailable();
-                    g.setColor(missiles < 20 ? Color.RED : Color.WHITE);
+                    g.setColor(missiles < 20 ? Color.RED : (currentLevel >= 7 ? Color.BLACK : Color.WHITE));
                     g.drawString("Ammo: " + missiles, bx - toScreenLen(20), by + toScreenLen(20));
                     if (!battery.isActive()) {
                         g.setColor(new Color(255, 0, 0, 128));
@@ -1342,11 +1342,11 @@ public class Ui {
                     
                     gRotated.dispose();
 
-                    g.setColor(Color.WHITE);
+                    g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
                     g.drawString("Laser", bx - toScreenLen(15), by - toScreenLen(45));
                     // הצגת כמות התחמושת עבור סוללת לייזר
                     int charges = laserBatt.getLaserChargesAvailable();
-                    g.setColor(charges < 20 ? Color.RED : Color.WHITE);
+                    g.setColor(charges < 20 ? Color.RED : (currentLevel >= 7 ? Color.BLACK : Color.WHITE));
                     // כאן התיקון: שינינו ל- plus toScreenLen(20)
                     g.drawString("Ammo: " + charges, bx - toScreenLen(15), by + toScreenLen(20));
 
@@ -1465,7 +1465,7 @@ public class Ui {
 
                 gRotated.dispose();
 
-                g.setColor(Color.WHITE);
+                g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
                 g.drawString(threat instanceof UAV ? "UAV" : "Threat", tx + toScreenLen(8), ty);
             }
         }
@@ -1605,7 +1605,7 @@ public class Ui {
         }
 
         private void drawMessage(Graphics g, String message) {
-            g.setColor(Color.WHITE);
+            g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
             g.drawString(message, 20, 20);
         }
     }
