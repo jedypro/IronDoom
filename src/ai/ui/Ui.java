@@ -585,7 +585,7 @@ public class Ui {
         diffLabel.setForeground(Color.WHITE);
 
         javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
-            new javax.swing.SpinnerNumberModel(1, 1, 10, 1)
+            new javax.swing.SpinnerNumberModel(1, 1, 99, 1)
         );
         this.difficultySpinner = difficultySpinner;
         difficultySpinner.setFont(difficultySpinner.getFont().deriveFont(14f));

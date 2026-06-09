@@ -135,7 +135,9 @@ public class TeamBackend {
         threats.clear();
         activeInterceptors.clear();
         damageables.clear();
-        gameState = new GameState(300, 1, true);
+        // Preserve the current difficulty level when resetting the game.
+        int currentLevel = (this.gameState != null) ? this.gameState.getLevel() : 1;
+        gameState = new GameState(300, currentLevel, true);
         resetLevelTimer();
         resetBarrageTimer();
         initializeWorld();
