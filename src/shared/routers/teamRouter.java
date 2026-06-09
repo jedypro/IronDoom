@@ -30,11 +30,19 @@ public class teamRouter implements SubRouter {
                 backend.doStep(p.getDouble(0));
                 return null;
             }
-            case "/launch": {
-                int batteryId = p.getInt(0);
-                int angle = p.getInt(1);
+            case "/launchDefense": { // Changed from /launch to /launchDefense
+                int defenseSystemId = p.getInt(0);
+                double angle = p.getDouble(1); // Angle can be double
+                String defenseType = p.getString(2); // New parameter for defense type
 
-                backend.launchInterceptor(batteryId, angle);
+                backend.launchDefense(defenseSystemId, angle, defenseType);
+                return null;
+            }
+            
+            case "/updateAim": {
+                int defenseSystemId = p.getInt(0);
+                double angle = p.getDouble(1);
+                backend.updateAim(defenseSystemId, angle);
                 return null;
             }
 

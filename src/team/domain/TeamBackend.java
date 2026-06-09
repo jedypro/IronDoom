@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import my_base.App;
@@ -62,9 +63,14 @@ public class TeamBackend {
 
             int length = ThreadLocalRandom.current().nextInt(10, 15);
             int height = ThreadLocalRandom.current().nextInt(5, 9);
-    
-            return new BallisticMissile(id, startX, startY, randomVx, randomVy, length, height, this.gameState.getLevel(), new BallisticMovementStrategy());
-        });
+    // הגרלה: 50% סיכוי למסלול גלי, 50% למסלול בליסטי רגיל - אך ורק משלב 3 ומעלה
+            MovementStrategy strategy;
+            if (level >= 3 && ThreadLocalRandom.current().nextInt(7) == 0) {
+                strategy = new WavyMovementStrategy();
+            } else {
+                strategy = new BallisticMovementStrategy();
+            }
+            return new BallisticMissile(id, startX, startY, randomVx, randomVy, length, height, this.gameState.getLevel(), strategy);        });
 
         // רישום: כטב"ם (UAV)
         spawner.registerThreatType((id) -> {
@@ -101,16 +107,21 @@ public class TeamBackend {
         this.assetSpawner = new AssetSpawner();
 
         // רישום נכסים רגילים
-        assetSpawner.registerRegularAsset((id, x, groundY) -> 
+        assetSpawner.registerRegularAsset((id, x, groundY) ->
             new GroundAsset(id, "City " + id, x, groundY - 80, 150, 80, this.gameState)
         );
 
         // רישום מערכות הגנה
-        assetSpawner.registerDefenseSystem((id, x, groundY) -> 
+        assetSpawner.registerDefenseSystem((id, x, groundY) ->
             new InterceptorBattery(id, x, groundY - 50)
         );
+        // רישום מערכות הגנה - לייזר (רק משלב 3 ומעלה, ומקסימום 1)
+        if (this.gameState.getLevel() >= 3) {
+            assetSpawner.registerDefenseSystem((id, x, groundY) ->
+                new LaserBattery(id, x, groundY - 50)
+            , 1);
+        }
     }
-
     // Called once at UI startup
     public void start() {
         teamUiPort().log("Logging: TeamBackend started");
@@ -124,10 +135,11 @@ public class TeamBackend {
         threats.clear();
         activeInterceptors.clear();
         damageables.clear();
-        //gameState = new GameState(100, 1, true);
+        gameState = new GameState(300, 1, true);
         resetLevelTimer();
         resetBarrageTimer();
         initializeWorld();
+        App.getPeriodicLoop().setPaused(false);
         publishScene();
     }
 
@@ -203,21 +215,36 @@ public class TeamBackend {
 
     // UI input events call these via router
     public void doStep(double timeStep) {
-        //System.out.println("In TeamBackend doStep, timeStep=" + timeStep + " ...");
         updateThreatPositions(timeStep);
         updateInterceptorPositions(timeStep);
 
-        AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
-        if (newThreat != null) {
-            threats.add(newThreat);
+        // בדיקה האם הזמן המוקצב לשלב כבר חלף
+        double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
+        boolean isTimeUp = (levelElapsedTime >= levelDuration);
+
+        // ייצור איומים וגלים חדשים יקרה אך ורק אם הזמן של השלב עדיין לא נגמר
+        if (!isTimeUp) {
+            AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
+            if (newThreat != null) {
+                threats.add(newThreat);
+            }
+            advanceBarrageTimers(timeStep);
+            checkBarrage();
         }
 
-        advanceBarrageTimers(timeStep);
         advanceLevelTimer(timeStep);
-        if(levelCompleted){
-            return;}
-        checkCollisions();
-        checkBarrage();
+        
+        if (levelCompleted) {
+            return;
+        }
+        
+        checkCollisions(timeStep);
+
+        //  אם אף אמצעי הגנה לא מסוגל לירות יותר - המשחק נגמר מיד בהפסד
+        if (!canAnyDefenseSystemFire()) {
+            gameState.setStatus(false);
+        }
+
         publishScene();
     }
 
@@ -268,7 +295,7 @@ public class TeamBackend {
 
         levelElapsedTime += timeStep;
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
-        if (levelElapsedTime >= levelDuration) {
+        if (levelElapsedTime >= levelDuration&& threats.isEmpty()) {
             levelCompleted = true;
             teamUiPort().showLevelComplete("Level " + gameState.getLevel() + " complete!");
             App.getPeriodicLoop().setPaused(true);
@@ -315,10 +342,13 @@ public class TeamBackend {
         }
     }
 
-    private void checkCollisions() {
+    private Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
+
+    private void checkCollisions(double timeStep) {
         Iterator<AbstractThreat> threatIterator = threats.iterator();
         while (threatIterator.hasNext()) {
             AbstractThreat threat = threatIterator.next();
+            boolean threatDestroyed = false;
 
             for (Damageable damageable : damageables) {
                 if (damageable.checkHit(threat.getX(), threat.getY())) {
@@ -327,13 +357,46 @@ public class TeamBackend {
                     teamUiPort().triggerExplosion(threat.getX(), threat.getY());
                     teamUiPort().updateScore(gameState.getScore());
                     threatIterator.remove();
-                    return;
+                    threatDestroyed = true;
+                    threatLaserContactTime.remove(threat.getId());
+                    break;
                 }
             }
+            if (threatDestroyed) continue;
 
+            boolean hitByLaserThisTick = false;
             Iterator<DefenseEntity> interceptorIterator = activeInterceptors.iterator();
             while (interceptorIterator.hasNext()) {
                 DefenseEntity interceptor = interceptorIterator.next();
+
+                // Handle LightShield collisions
+                if (interceptor instanceof LightShield) {
+                    LightShield laser = (LightShield) interceptor;
+                    if (!laser.isActive()) { // Laser might have expired
+                        interceptorIterator.remove();
+                        continue;
+                    }
+                    if (laser.intersects(threat)) {
+                        hitByLaserThisTick = true;
+                        double contactTime = threatLaserContactTime.getOrDefault(threat.getId(), 0.0) + timeStep;
+                        threatLaserContactTime.put(threat.getId(), contactTime);
+                        
+                        if (contactTime >= 0.1) {
+                            gameState.updateScore(10); // Score for hitting a threat with laser
+                            threatIterator.remove();
+                            teamUiPort().updateScore(gameState.getScore());
+                            teamUiPort().triggerExplosion(
+                                (int) (threat.getX() + threat.getLength() / 2.0),
+                                (int) (threat.getY() + threat.getHeight() / 2.0)
+                            );
+                            threatDestroyed = true;
+                            threatLaserContactTime.remove(threat.getId());
+                            break; // Stop checking this threat, it's destroyed
+                        }
+                    }
+                    continue; // LightShields don't have traditional "active" state for removal like missiles
+                }
+
                 if (!interceptor.isActive()) {
                     interceptorIterator.remove();
                     continue;
@@ -353,8 +416,15 @@ public class TeamBackend {
                         (threat.getX() + interceptor.getX()) / 2,
                         (threat.getY() + interceptor.getY()) / 2
                     );
-                    return;
+                    threatDestroyed = true;
+                    threatLaserContactTime.remove(threat.getId());
+                    break;
                 }
+            }
+            if (!threatDestroyed && !hitByLaserThisTick) {
+                // Decay the contact time if not hit by a laser this tick?
+                // Or just reset it? The instruction says it needs 0.3 sec to destroy. Let's reset it if it's not hit.
+                threatLaserContactTime.remove(threat.getId());
             }
         }
     }
@@ -399,18 +469,46 @@ public class TeamBackend {
     return null;
 }
 
-   public void launchInterceptor(int batteryId, double angle) {
-    InterceptorBattery battery = findBatteryById(batteryId); 
-    
-    if (battery != null) {
-        TargetingParams params = new BallisticTargetingParams(angle);
-        DefenseEntity newMissile = battery.attemptDefense(params);     
-        if (newMissile != null) {
-            this.activeInterceptors.add(newMissile);
+   private AbstractDefenseSystem findDefenseSystemById(int id) {
+    for (Damageable system : damageables) {
+        if (system instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) system).getId() == id) {
+            return (AbstractDefenseSystem) system;
+        }
     }
-    }
+    return null;
 }
 
+   public void launchDefense(int defenseSystemId, double angle, String defenseType) {
+        AbstractDefenseSystem defenseSystem = findDefenseSystemById(defenseSystemId);
+        
+        if (defenseSystem != null) {
+            TargetingParams params;
+            DefenseEntity newDefense = null;
+
+            if ("MISSILE".equalsIgnoreCase(defenseType) && defenseSystem instanceof InterceptorBattery) {
+                params = new BallisticTargetingParams(angle);
+                newDefense = defenseSystem.attemptDefense(params);
+            } else if ("LASER".equalsIgnoreCase(defenseType) && defenseSystem instanceof LaserBattery) {
+                params = new LaserTargetingParams(angle);
+                newDefense = defenseSystem.attemptDefense(params);
+            } else {
+                System.err.println("Unknown defense type: " + defenseType);
+                return;
+            }
+
+            if (newDefense != null) {
+                this.activeInterceptors.add(newDefense);
+            }
+        }
+    }
+
+    public void updateAim(int defenseSystemId, double angle) {
+        AbstractDefenseSystem system = findDefenseSystemById(defenseSystemId);
+        if (system instanceof LaserBattery) {
+            ((LaserBattery) system).setCurrentAimAngle(angle);
+        }
+    }
+    
     public void updateSettings(int newLevel) {
         this.gameState.setLevel(newLevel);
         resetLevelTimer();
@@ -428,6 +526,30 @@ public class TeamBackend {
         this.damageables.addAll(assetSpawner.spawnRegularAssets(newLevel, groundY));
 
         publishScene();
+    }
+    //נרצה לבדוק האם יש לפחות מערכת אחת שיכולה לירות (פעילה ויש לה תחמושת)
+    private boolean canAnyDefenseSystemFire() {
+        for (Damageable d : damageables) {
+            if (d instanceof AbstractDefenseSystem) {
+                AbstractDefenseSystem system = (AbstractDefenseSystem) d;
+                // בדיקה האם המערכת פעילה ולא הושמדה
+                if (system.isActive()) {
+                    // אם זו סוללת טילים - נבדוק שיש טילים
+                    if (system instanceof InterceptorBattery) {
+                        if (((InterceptorBattery) system).getMissilesAvailable() > 0) {
+                            return true;
+                        }
+                    // אם זו סוללת לייזר - נבדוק שיש טעינות
+                    } else if (system instanceof LaserBattery) {
+                        if (((LaserBattery) system).getLaserChargesAvailable() > 0) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        // אם עברנו על כל המערכות ואף אחת לא יכולה לירות
+        return false;
     }
 
 }

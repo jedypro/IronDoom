@@ -31,11 +31,14 @@ import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
 import team.domain.DefenseEntity;
+import team.domain.LaserBattery;
 import team.domain.GameState;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
 import team.domain.InterceptorMissile;
 import team.domain.UAV;
+import team.domain.AbstractDefenseSystem;
+import team.domain.LightShield;
 
 public class Ui {
     private MainRouter mainRouter;
@@ -120,6 +123,19 @@ public class Ui {
         startupComplete.await();
     }
 
+    private String getSelectedDefenseType() {
+        for (Damageable d : damageables) {
+            if (d instanceof AbstractDefenseSystem) {
+                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+                if (ds.getId() == selectedBatteryId) {
+                    if (ds instanceof LaserBattery) return "LASER";
+                    return "MISSILE";
+                }
+            }
+        }
+        return "MISSILE";
+    }
+
     private void createAndShowWindow() {
         frame = new JFrame("IronDoom Scenario Demo");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -151,9 +167,15 @@ public class Ui {
         angleSlider.setPaintTicks(true);
         angleSlider.setPaintLabels(true);
         angleSlider.addChangeListener(e -> {
-            this.currentSliderAngle = angleSlider.getValue();
+        int newAngle = angleSlider.getValue();
+        if (newAngle != this.currentSliderAngle) {
+            this.currentSliderAngle = newAngle;
+            if (mainRouter != null && selectedBatteryId != -1) {
+                mainRouter.route("/team/updateAim", Params.of(selectedBatteryId, (double) currentSliderAngle));
+            }
             refresh(); 
-        });
+        }
+     });
 
         // === Battery Selection Dropdown ===
         batteryComboBox = new javax.swing.JComboBox<>();
@@ -228,14 +250,15 @@ public class Ui {
         bottomControls.add(fireButton);
 
         JPanel controlPanel = new JPanel();
+        controlPanel.setOpaque(false); // Make control panel transparent
         controlPanel.setLayout(new javax.swing.BoxLayout(controlPanel, javax.swing.BoxLayout.Y_AXIS));
         controlPanel.add(topControls);
         controlPanel.add(bottomControls);
 
-        JPanel gameScreen = new JPanel(new BorderLayout());
-        gameScreen.add(controlPanel, BorderLayout.NORTH);
+        JPanel gameScreen = new JPanel(new BorderLayout()); // This was already here.
         gameScreen.add(gameCanvas, BorderLayout.CENTER);
 
+        gameScreen.add(controlPanel, BorderLayout.NORTH); // Add control panel to game screen
         gameOverPanel = createGameOverPanel();
         levelCompletePanel = createLevelCompletePanel();
         settingsPanel = createSettingsPanel();
@@ -262,10 +285,11 @@ public class Ui {
                 return;
             }
             int angle = angleSlider.getValue();
+            String defenseType = getSelectedDefenseType();
             
-            Params params = Params.of(selectedBatteryId, angle);
-            System.out.println("Launching from Battery " + selectedBatteryId + " | Angle: " + angle);
-            mainRouter.route("/team/launch", params);
+            Params params = Params.of(selectedBatteryId, angle, defenseType);
+            System.out.println("Launching " + defenseType + " from System " + selectedBatteryId + " | Angle: " + angle);
+            mainRouter.route("/team/launchDefense", params);
         });
 
         // === Global Key Bindings (continuous arrows & Z) ===
@@ -354,23 +378,24 @@ public class Ui {
                     return;
                 }
                 int currentAngle = angleSlider.getValue();
+                String defenseType = getSelectedDefenseType();
                 
                 // Fire at current angle
-                Params params1 = Params.of(selectedBatteryId, currentAngle);
-                System.out.println("Triple Fire - Missile 1: Battery " + selectedBatteryId + " | Angle: " + currentAngle);
-                mainRouter.route("/team/launch", params1);
+                Params params1 = Params.of(selectedBatteryId, currentAngle, defenseType);
+                System.out.println("Triple Fire - " + defenseType + " 1: System " + selectedBatteryId + " | Angle: " + currentAngle);
+                mainRouter.route("/team/launchDefense", params1);
                 
                 // Fire at current angle + 4 degrees
                 int angle2 = Math.min(angleSlider.getMaximum(), currentAngle + 4);
-                Params params2 = Params.of(selectedBatteryId, angle2);
-                System.out.println("Triple Fire - Missile 2: Battery " + selectedBatteryId + " | Angle: " + angle2);
-                mainRouter.route("/team/launch", params2);
+                Params params2 = Params.of(selectedBatteryId, angle2, defenseType);
+                System.out.println("Triple Fire - " + defenseType + " 2: System " + selectedBatteryId + " | Angle: " + angle2);
+                mainRouter.route("/team/launchDefense", params2);
                 
                 // Fire at current angle - 4 degrees
                 int angle3 = Math.max(angleSlider.getMinimum(), currentAngle - 4);
-                Params params3 = Params.of(selectedBatteryId, angle3);
-                System.out.println("Triple Fire - Missile 3: Battery " + selectedBatteryId + " | Angle: " + angle3);
-                mainRouter.route("/team/launch", params3);
+                Params params3 = Params.of(selectedBatteryId, angle3, defenseType);
+                System.out.println("Triple Fire - " + defenseType + " 3: System " + selectedBatteryId + " | Angle: " + angle3);
+                mainRouter.route("/team/launchDefense", params3);
             }
         });
 
@@ -672,12 +697,17 @@ public class Ui {
 
     private void showGameOverScreen() {
         if (cardLayout != null && rootPanel != null) {
+            currentScreen = UIConstants.CARD_GAME_OVER;
+            settingsScreenActive = false;
+            paused = true;
+            if (pauseButton != null) pauseButton.setText("Resume");
             if (gameCanvas != null) {
                 gameCanvas.pauseAnimation();
             }
             if (aimTimer != null) {
                 aimTimer.stop();
             }
+            showStatus("Game Over");
             cardLayout.show(rootPanel, "GAME_OVER");
         }
     }
@@ -1240,8 +1270,87 @@ public class Ui {
 
                     g.setColor(Color.WHITE);
                     g.drawString("Battery", bx - toScreenLen(20), by - toScreenLen(45));
-
+                    int missiles = battery.getMissilesAvailable();
+                    g.setColor(missiles < 20 ? Color.RED : Color.WHITE);
+                    g.drawString("Ammo: " + missiles, bx - toScreenLen(20), by + toScreenLen(20));
                     if (!battery.isActive()) {
+                        g.setColor(new Color(255, 0, 0, 128));
+                        g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
+                    }
+                } else if (damageable instanceof LaserBattery) {
+                    LaserBattery laserBatt = (LaserBattery) damageable;
+                    int bx = toScreenX(laserBatt.getX());
+                    int by = toScreenY(groundY);
+
+                    int baseW = toScreenLen(60);
+                    int baseH = toScreenLen(20);
+                    int halfBaseW = toScreenLen(30);
+
+                    boolean isSelected = laserBatt.getId() == selectedBatteryId;
+                    
+                    // Base Colors
+                    Color battBaseColor = new Color(50, 60, 90);
+                    Color battSelectedColor = new Color(70, 150, 230);
+                    
+                    if (isSelected) {
+                        Graphics2D gHighlight = (Graphics2D) g.create();
+                        gHighlight.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                        int glowPadding = toScreenLen(10);
+                        int ringX = bx - halfBaseW - glowPadding;
+                        int ringY = by - baseH - glowPadding;
+                        int ringW = baseW + glowPadding * 2;
+                        int ringH = baseH + glowPadding * 2;
+
+                        gHighlight.setColor(new Color(80, 130, 255, 90));
+                        gHighlight.fillRoundRect(ringX, ringY, ringW, ringH, toScreenLen(24), toScreenLen(24));
+
+                        gHighlight.setStroke(new BasicStroke(toScreenLen(4), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        gHighlight.setColor(new Color(150, 195, 255, 180));
+                        gHighlight.drawRoundRect(ringX + toScreenLen(3), ringY + toScreenLen(3), ringW - toScreenLen(6), ringH - toScreenLen(6), toScreenLen(24), toScreenLen(24));
+                        gHighlight.dispose();
+                    }
+
+                    g.setColor(isSelected ? battSelectedColor : battBaseColor);
+                    g.fillRoundRect(bx - halfBaseW, by - baseH, baseW, baseH, toScreenLen(10), toScreenLen(10));
+                    g.setColor(Color.BLACK);
+                    g.drawRoundRect(bx - halfBaseW, by - baseH, baseW, baseH, toScreenLen(10), toScreenLen(10));
+
+                    // Dome/Lens for Laser
+                    g.setColor(new Color(100, 200, 255, 150));
+                    g.fillArc(bx - toScreenLen(20), by - baseH - toScreenLen(15), toScreenLen(40), toScreenLen(30), 0, 180);
+                    g.setColor(Color.BLACK);
+                    g.drawArc(bx - toScreenLen(20), by - baseH - toScreenLen(15), toScreenLen(40), toScreenLen(30), 0, 180);
+                    
+                    // Central "Core"
+                    g.setColor(new Color(255, 255, 255, 200));
+                    g.fillOval(bx - toScreenLen(8), by - baseH - toScreenLen(10), toScreenLen(16), toScreenLen(16));
+
+                    // Laser Direction indicator (rotating barrel/nozzle)
+                    Graphics2D gRotated = (Graphics2D) g.create();
+                    gRotated.translate(bx, by - baseH - toScreenLen(5));
+                    double rotationAngle = Math.toRadians(currentSliderAngle - 90);
+                    gRotated.rotate(rotationAngle);
+                    
+                    gRotated.setColor(new Color(200, 220, 255));
+                    gRotated.fillRect(-toScreenLen(4), -toScreenLen(25), toScreenLen(8), toScreenLen(25));
+                    gRotated.setColor(Color.BLACK);
+                    gRotated.drawRect(-toScreenLen(4), -toScreenLen(25), toScreenLen(8), toScreenLen(25));
+                    
+                    gRotated.setColor(Color.RED);
+                    gRotated.fillRect(-toScreenLen(2), -toScreenLen(25), toScreenLen(4), toScreenLen(5));
+                    
+                    gRotated.dispose();
+
+                    g.setColor(Color.WHITE);
+                    g.drawString("Laser", bx - toScreenLen(15), by - toScreenLen(45));
+                    // הצגת כמות התחמושת עבור סוללת לייזר
+                    int charges = laserBatt.getLaserChargesAvailable();
+                    g.setColor(charges < 20 ? Color.RED : Color.WHITE);
+                    // כאן התיקון: שינינו ל- plus toScreenLen(20)
+                    g.drawString("Ammo: " + charges, bx - toScreenLen(15), by + toScreenLen(20));
+
+                    if (!laserBatt.isActive()) {
                         g.setColor(new Color(255, 0, 0, 128));
                         g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
                     }
@@ -1372,7 +1481,42 @@ public class Ui {
             }
 
             for (DefenseEntity interceptor : interceptors) {
-                if(interceptor instanceof InterceptorMissile)
+                if (interceptor instanceof LightShield) {
+                    team.domain.LightShield laser = (team.domain.LightShield) interceptor;
+                    if (!laser.isActive()) continue;
+
+                    int sx = toScreenX(laser.getX());
+                    int sy = toScreenY(laser.getY());
+                    int ex = toScreenX(laser.getEndX());
+                    int ey = toScreenY(laser.getEndY());
+
+                    Graphics2D g2 = (Graphics2D) g;
+                    
+                    // יצירת אפקט אנימציה פועם שמשתנה בזמן אמת
+                    long time = System.currentTimeMillis();
+                    double pulse = 1.0 + 0.2 * Math.sin(time / 40.0); // קצב הפעימה של הלייזר
+
+                    int coreWidth = Math.max(1, (int)(toScreenLen(4) * pulse));
+                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(12) * pulse));
+                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(26) * pulse));
+
+                    // שכבה 1: הילה חיצונית (כחול כהה שקוף)
+                    g2.setColor(new Color(0, 100, 255, 60));
+                    g2.setStroke(new BasicStroke(outerGlowWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(sx, sy, ex, ey);
+
+                    // שכבה 2: הילה פנימית (תכלת זוהר שקוף למחצה)
+                    g2.setColor(new Color(0, 200, 255, 150));
+                    g2.setStroke(new BasicStroke(innerGlowWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(sx, sy, ex, ey);
+
+                    // שכבה 3: ליבת הלייזר (לבן-תכלת בוהק)
+                    g2.setColor(new Color(220, 255, 255, 255));
+                    g2.setStroke(new BasicStroke(coreWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.drawLine(sx, sy, ex, ey);
+
+                    g2.setStroke(new BasicStroke(1)); // איפוס סגנון הציור למצב הרגיל
+                } else if(interceptor instanceof InterceptorMissile)
                 {int ix = toScreenX(interceptor.getX());
                 int iy = toScreenY(interceptor.getY());
                 int id = interceptor.getId();
@@ -1469,10 +1613,13 @@ public class Ui {
     private void updateBatteryComboBoxItems(List<Damageable> currentDamageables) {
         List<Integer> batteryIds = new ArrayList<>();
         for (Damageable d : currentDamageables) {
-            if (d instanceof InterceptorBattery) {
-                batteryIds.add(((InterceptorBattery) d).getId());
+            if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {                // Cast to AbstractDefenseSystem to access getId()
+                // This is safe because both InterceptorBattery and LaserBattery extend AbstractDefenseSystem
+                batteryIds.add(((AbstractDefenseSystem) d).getId());
             }
         }
+        // Sort IDs for consistent display
+        batteryIds.sort(Integer::compare);
 
         boolean refreshNeeded = batteryComboBox.getItemCount() != batteryIds.size();
         if (!refreshNeeded) {
@@ -1504,46 +1651,52 @@ public class Ui {
     }
 
     private void updateBatteryInfoDisplay() {
+        // Default message if no defense system is selected or available
         if (selectedBatteryId == -1) {
-            batteryInfoLabel.setText("Status: No Battery Available | Ammo: 0");
+            batteryInfoLabel.setText("Status: No Defense System Selected | Ammo: 0");
             batteryInfoLabel.setForeground(Color.BLACK);
             return;
         }
 
-        InterceptorBattery selectedBattery = null;
+        AbstractDefenseSystem selectedDefenseSystem = null;
         for (Damageable d : damageables) {
-            if (d instanceof InterceptorBattery) {
-                InterceptorBattery b = (InterceptorBattery) d;
-                if (b.getId() == selectedBatteryId) {
-                    selectedBattery = b;
+            if (d instanceof AbstractDefenseSystem) { // Check if it's a defense system
+                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+                if (ds.getId() == selectedBatteryId) {
+                    selectedDefenseSystem = ds;
                     break;
                 }
             }
         }
 
-        if (selectedBattery == null) {
+        // If the previously selected system is no longer available, try to select the first available one
+        if (selectedDefenseSystem == null) {
             for (Damageable d : damageables) {
-                if (d instanceof InterceptorBattery) {
-                    selectedBattery = (InterceptorBattery) d;
-                    selectedBatteryId = selectedBattery.getId();
+                if (d instanceof AbstractDefenseSystem) {
+                    selectedDefenseSystem = (AbstractDefenseSystem) d;
+                    selectedBatteryId = selectedDefenseSystem.getId();
                     break;
                 }
             }
         }
 
-        if (selectedBattery != null) {
-            String status = selectedBattery.isActive() ? "ACTIVE" : "DAMAGED";
-            int ammo = selectedBattery.getMissilesAvailable();
-            batteryInfoLabel.setText(String.format("Battery %d SELECTED | %s | Interceptors: %d", selectedBatteryId, status, ammo));
+        if (selectedDefenseSystem != null) {
+            String status = selectedDefenseSystem.isActive() ? "ACTIVE" : "DAMAGED";
+            String ammoInfo;
+            if (selectedDefenseSystem instanceof InterceptorBattery) {
+                ammoInfo = String.format("Interceptors: %d", ((InterceptorBattery) selectedDefenseSystem).getMissilesAvailable());
+            } else if (selectedDefenseSystem instanceof LaserBattery) {
+                ammoInfo = String.format("Laser Charges: %d", ((LaserBattery) selectedDefenseSystem).getLaserChargesAvailable());
+            } else {
+                ammoInfo = "Ammo: N/A"; // Fallback for other defense types
+            }
+            batteryInfoLabel.setText(String.format("System %d SELECTED | %s | %s", selectedBatteryId, status, ammoInfo));
             
-            if (!selectedBattery.isActive()) {
+            if (!selectedDefenseSystem.isActive()) {
                 batteryInfoLabel.setForeground(new Color(200, 40, 40));
             } else {
                 batteryInfoLabel.setForeground(new Color(20, 90, 180));
             }
-        } else {
-            batteryInfoLabel.setText("Status: No Battery Available | Ammo: 0");
-            batteryInfoLabel.setForeground(Color.BLACK);
         }
     }
 
@@ -1558,7 +1711,7 @@ public class Ui {
         int nextIndex = (currentIndex + delta + batteryComboBox.getItemCount()) % batteryComboBox.getItemCount();
         batteryComboBox.setSelectedIndex(nextIndex);
         Integer selected = (Integer) batteryComboBox.getSelectedItem();
-        if (selected != null) {
+        if (selected != null && selectedBatteryId != selected) { // Only update if selection actually changed
             selectedBatteryId = selected;
             updateBatteryInfoDisplay();
         }

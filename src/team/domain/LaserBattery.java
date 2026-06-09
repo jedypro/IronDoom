@@ -5,7 +5,8 @@ import java.util.UUID;
 public class LaserBattery extends AbstractDefenseSystem implements Damageable {
     private int laserChargesAvailable = 50; // Default starting ammo for laser
     public static final double LASER_RANGE = 1500.0; // How far the laser reaches
-    public static final double LASER_DURATION_SECONDS = 0.2; // How long the laser stays visible
+    public static final double LASER_DURATION_SECONDS = 2.0; // How long the laser stays visible
+    private double currentAimAngle = 90.0; // ברירת מחדל למעלה
 
     // Constructor
     public LaserBattery(int id, int x, int y, int inventory) {
@@ -25,6 +26,14 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
 
     public void setLaserChargesAvailable(int laserChargesAvailable) {
         this.laserChargesAvailable = laserChargesAvailable;
+    }
+    
+    public void setCurrentAimAngle(double angle) {
+        this.currentAimAngle = angle;
+    }
+
+    public double getCurrentAimAngle() {
+        return this.currentAimAngle;
     }
 
     @Override
@@ -49,7 +58,7 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
         if (params instanceof LaserTargetingParams) {
             double angle = ((LaserTargetingParams) params).getAngle();
             // Create a LightShield at the battery's position
-            LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this.getX(), this.getY(), angle, LASER_RANGE, LASER_DURATION_SECONDS);
+            LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this, angle, LASER_RANGE, LASER_DURATION_SECONDS);
             laserChargesAvailable--; // Lasers consume ammo
             return laser;
         }
