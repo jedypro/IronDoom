@@ -996,7 +996,7 @@ public class Ui {
             }
 
             drawBackground(g2d, groundY);
-            drawGroundAssets(g2d, groundY);
+            drawGroundAssets(g2d, groundY, animationTick);
             drawThreats(g2d, animationTick);
             drawInterceptors(g2d, animationTick);
             drawExplosions(g2d);
@@ -1071,7 +1071,7 @@ public class Ui {
             }
         }
 
-        private void drawGroundAssets(Graphics g, int groundY) {
+        private void drawGroundAssets(Graphics g, int groundY, boolean isTick) {
             Color bldgBg, bldgInner, blockBg, windowColor, battBase, battSelected, tubesColor;
 
             if (currentLevel >= 7) {
@@ -1102,76 +1102,152 @@ public class Ui {
 
             for (Damageable damageable : damageables) {
                 if (damageable instanceof GroundAsset) {
-                    GroundAsset city = (GroundAsset) damageable;
-                    int sx = toScreenX(city.getX());
-                    int sy = toScreenY(city.getY());
-                    int sw = toScreenLen(city.getWidth());
-                    int sh = toScreenLen(city.getHeight());
+                    GroundAsset asset = (GroundAsset) damageable;
+                    if (asset.getName().startsWith("Factory")) {
+                        int sx = toScreenX(asset.getX());
+                        int sy = toScreenY(asset.getY());
+                        int sw = toScreenLen(asset.getWidth());
+                        int sh = toScreenLen(asset.getHeight());
 
-                    g.setColor(bldgBg);
-                    g.fillRect(sx, sy, sw, sh);
-                    g.setColor(bldgInner);
-                    g.fillRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
-                    g.setColor(Color.BLACK);
-                    g.drawRect(sx, sy, sw, sh);
-                    g.drawRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
+                        // Main building (taller, narrower base)
+                        g.setColor(blockBg);
+                        g.fillRect(sx, sy, sw, sh);
+                        g.setColor(Color.BLACK);
+                        g.drawRect(sx, sy, sw, sh);
 
-                    int blockW = Math.max(toScreenLen(20), sw / 5);
-                    for (int i = 0; i < sw; i += blockW) {
-                        int currentBlockW = Math.min(blockW, sw - i);
-                        int blockSeed = (i / blockW);
-                        int citySeed = city.getHeight();
+                        // Smokestack
+                        int stackWidth = Math.max(toScreenLen(20), sw / 3);
+                        int stackHeight = sh + toScreenLen(30);
+                        int stackX = sx + sw / 2 - stackWidth / 2;
+                        int stackY = sy - toScreenLen(30);
+                        g.setColor(bldgBg);
+                        g.fillRect(stackX, stackY, stackWidth, stackHeight);
+                        g.setColor(Color.BLACK);
+                        g.drawRect(stackX, stackY, stackWidth, stackHeight);
 
-                        if (currentLevel >= 7) {
-                            // Ruined/scrap building design
-                            int blockH = toScreenLen(10 + (blockSeed % 4) * 8 + (citySeed % 10));
-                            int blockY = sy + sh - blockH;
-                            
-                            // Reverting to simple blocky design to prevent crashes, but with new colors.
-                            g.setColor(blockBg);
-                            g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                            g.setColor(Color.BLACK);
-                            g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                    g.setColor(windowColor);
-                                    g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                        // Smoke animation
+                        Graphics2D g2d = (Graphics2D) g.create();
+                        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        if (isTick) {
+                            g2d.setColor(new Color(150, 150, 150, 150));
+                            g2d.fillOval(stackX, stackY - toScreenLen(15), stackWidth, toScreenLen(20));
+                            g2d.setColor(new Color(180, 180, 180, 100));
+                            g2d.fillOval(stackX - toScreenLen(5), stackY - toScreenLen(25), stackWidth + toScreenLen(10), toScreenLen(22));
+                        } else {
+                            g2d.setColor(new Color(160, 160, 160, 140));
+                            g2d.fillOval(stackX + toScreenLen(2), stackY - toScreenLen(18), stackWidth - toScreenLen(4), toScreenLen(18));
+                        }
+                        g2d.dispose();
+
+                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
+                        g.drawString(asset.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
+                    } else if (asset.getName().startsWith("Military Base")) {
+                        int sx = toScreenX(asset.getX());
+                        int sy = toScreenY(asset.getY());
+                        int sw = toScreenLen(asset.getWidth());
+                        int sh = toScreenLen(asset.getHeight());
+
+                        // Main bunker structure (low and wide)
+                        g.setColor(blockBg);
+                        g.fillRect(sx, sy, sw, sh);
+                        g.setColor(Color.BLACK);
+                        g.drawRect(sx, sy, sw, sh);
+
+                        // Camouflage pattern
+                        g.setColor(bldgBg);
+                        for (int i = 0; i < sw; i += toScreenLen(30)) {
+                            g.fillRect(sx + i, sy, toScreenLen(15), sh);
+                        }
+
+                        // Radar dish
+                        int dishX = sx + sw / 2 - toScreenLen(15);
+                        int dishY = sy - toScreenLen(20);
+                        g.setColor(tubesColor);
+                        g.fillArc(dishX, dishY, toScreenLen(30), toScreenLen(30), 30, 120);
+                        g.setColor(Color.BLACK);
+                        g.drawArc(dishX, dishY, toScreenLen(30), toScreenLen(30), 30, 120);
+
+                        // Antenna with blinking light
+                        int antennaX = sx + sw - toScreenLen(20);
+                        int antennaY = sy - toScreenLen(30);
+                        g.setColor(Color.DARK_GRAY);
+                        g.fillRect(antennaX, antennaY, toScreenLen(4), toScreenLen(30));
+                        if (isTick) { g.setColor(Color.RED); g.fillOval(antennaX, antennaY - toScreenLen(4), toScreenLen(4), toScreenLen(4)); }
+
+                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
+                        g.drawString(asset.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
+                    }else { // Default drawing for GroundAsset (City)
+                        GroundAsset city = asset;
+                        int sx = toScreenX(city.getX());
+                        int sy = toScreenY(city.getY());
+                        int sw = toScreenLen(city.getWidth());
+                        int sh = toScreenLen(city.getHeight());
+
+                        g.setColor(bldgBg);
+                        g.fillRect(sx, sy, sw, sh);
+                        g.setColor(bldgInner);
+                        g.fillRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
+                        g.setColor(Color.BLACK);
+                        g.drawRect(sx, sy, sw, sh);
+                        g.drawRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
+
+                        int blockW = Math.max(toScreenLen(20), sw / 5);
+                        for (int i = 0; i < sw; i += blockW) {
+                            int currentBlockW = Math.min(blockW, sw - i);
+                            int blockSeed = (i / blockW);
+                            int citySeed = city.getHeight();
+
+                            if (currentLevel >= 7) {
+                                // Ruined/scrap building design
+                                int blockH = toScreenLen(10 + (blockSeed % 4) * 8 + (citySeed % 10));
+                                int blockY = sy + sh - blockH;
+
+                                // Reverting to simple blocky design to prevent crashes, but with new colors.
+                                g.setColor(blockBg);
+                                g.fillRect(sx + i, blockY, currentBlockW, blockH);
+                                g.setColor(Color.BLACK);
+                                g.drawRect(sx + i, blockY, currentBlockW, blockH);
+                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                        g.setColor(windowColor);
+                                        g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                    }
                                 }
-                            }
-                        } else if (currentLevel >= 4) {
-                            int blockH = toScreenLen(15 + (blockSeed % 2) * 8 + (citySeed % 5));
-                            int blockY = sy + sh - blockH;
-                            if (blockSeed % 3 == 1) {
-                                g.setColor(blockBg); g.fillRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
-                                g.setColor(Color.BLACK); g.drawRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
+                            } else if (currentLevel >= 4) {
+                                int blockH = toScreenLen(15 + (blockSeed % 2) * 8 + (citySeed % 5));
+                                int blockY = sy + sh - blockH;
+                                if (blockSeed % 3 == 1) {
+                                    g.setColor(blockBg); g.fillRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
+                                    g.setColor(Color.BLACK); g.drawRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
+                                } else {
+                                    g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
+                                    g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
+                                }
+                                if (blockSeed % 3 == 0) {
+                                    g.setColor(bldgInner); g.fillArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
+                                    g.setColor(Color.BLACK); g.drawArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
+                                }
+                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                        g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                    }
+                                }
                             } else {
+                                int blockH = toScreenLen(18 + (blockSeed % 3) * 10 + (citySeed % 7));
+                                int blockY = sy + sh - blockH;
                                 g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
                                 g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                            }
-                            if (blockSeed % 3 == 0) {
-                                g.setColor(bldgInner); g.fillArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
-                                g.setColor(Color.BLACK); g.drawArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
-                            }
-                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                    g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
-                                }
-                            }
-                        } else {
-                            int blockH = toScreenLen(18 + (blockSeed % 3) * 10 + (citySeed % 7));
-                            int blockY = sy + sh - blockH;
-                            g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                            g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                            for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                    g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
+                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
+                                        g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
-                    g.drawString(city.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
+                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
+                        g.drawString(city.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
+                    }
                 } else if (damageable instanceof InterceptorBattery) {
                     InterceptorBattery battery = (InterceptorBattery) damageable;
                     int bx = toScreenX(battery.getX());
