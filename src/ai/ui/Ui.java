@@ -12,6 +12,8 @@ import java.awt.RenderingHints;
 import java.awt.BasicStroke;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -98,6 +101,7 @@ public class Ui {
     private java.awt.Image settingsBackgroundImage;
     private boolean paused = true;
     private JButton pauseButton;
+    private boolean soundEnabled = true;
     private boolean settingsScreenActive = false;
     private javax.swing.Timer aimTimer;
     private javax.swing.Timer warningTimer;
@@ -419,6 +423,10 @@ public class Ui {
         // Existing listeners are still active in the current codebase.
     }
 
+    public boolean isSoundEnabled() {
+        return soundEnabled;
+    }
+
     public void updateScore(int score) {
         if (scoreLabel != null) {
             SwingUtilities.invokeLater(() -> scoreLabel.setText("Score: " + score));
@@ -590,6 +598,13 @@ public class Ui {
         this.difficultySpinner = difficultySpinner;
         difficultySpinner.setFont(difficultySpinner.getFont().deriveFont(14f));
 
+        JLabel soundLabel = new JLabel("Sound:");
+        soundLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
+        soundLabel.setForeground(Color.WHITE);
+
+        ToggleSwitch soundToggle = new ToggleSwitch(this.soundEnabled);
+        soundToggle.addActionListener(e -> this.soundEnabled = soundToggle.isSelected());
+
         JButton applyButton = createStyledButton("Apply", 16);
         applyButton.addActionListener(e -> {
             int level = (Integer) difficultySpinner.getValue();
@@ -622,6 +637,14 @@ public class Ui {
         panel.add(difficultySpinner, c);
 
         c.gridy = 3;
+        c.insets = new java.awt.Insets(0, 0, 10, 0);
+        panel.add(soundLabel, c);
+
+        c.gridy = 4;
+        c.insets = new java.awt.Insets(0, 0, 20, 0);
+        panel.add(soundToggle, c);
+
+        c.gridy = 5;
         c.insets = new java.awt.Insets(0, 0, 0, 0);
         panel.add(buttonPanel, c);
 
@@ -1790,6 +1813,68 @@ public class Ui {
         if (selected != null && selectedBatteryId != selected) { // Only update if selection actually changed
             selectedBatteryId = selected;
             updateBatteryInfoDisplay();
+        }
+    }
+
+    private class ToggleSwitch extends JComponent {
+        private boolean selected;
+        private final Color enabledColor = new Color(70, 150, 230);
+        private final Color disabledColor = new Color(120, 120, 120);
+        private final Color knobColor = Color.WHITE;
+        private final int width = 50;
+        private final int height = 25;
+
+        public ToggleSwitch(boolean selected) {
+            this.selected = selected;
+            setPreferredSize(new java.awt.Dimension(width, height));
+            setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    setSelected(!isSelected());
+                }
+            });
+        }
+
+        public boolean isSelected() {
+            return selected;
+        }
+
+        public void setSelected(boolean selected) {
+            this.selected = selected;
+            repaint();
+            fireActionPerformed();
+        }
+
+        private void fireActionPerformed() {
+            for (ActionListener listener : getActionListeners()) {
+                listener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "toggle"));
+            }
+        }
+
+        public void addActionListener(ActionListener listener) {
+            listenerList.add(ActionListener.class, listener);
+        }
+
+        public ActionListener[] getActionListeners() {
+            return listenerList.getListeners(ActionListener.class);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int arc = height;
+            int knobDiameter = height - 4;
+            int knobX = selected ? width - knobDiameter - 2 : 2;
+
+            g2d.setColor(selected ? enabledColor : disabledColor);
+            g2d.fillRoundRect(0, 0, width, height, arc, arc);
+            g2d.setColor(knobColor);
+            g2d.fillOval(knobX, 2, knobDiameter, knobDiameter);
+            g2d.dispose();
         }
     }
 }

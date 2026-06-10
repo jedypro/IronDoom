@@ -71,21 +71,29 @@ public class TeamUiPortImpl extends TeamUiPort {
     //sound effects
     @Override
     public void playExplosionSound() {
-        AudioPlayer.play("resources/sounds/explosion.wav", 1);
+        if (ui.isSoundEnabled()) {
+            AudioPlayer.play("resources/sounds/explosion.wav", 1);
+        }
     }
 
     @Override
     public void playInterceptSound() {
-        AudioPlayer.play("resources/sounds/intercept.wav", 1);
+        if (ui.isSoundEnabled()) {
+            AudioPlayer.play("resources/sounds/intercept.wav", 1);
+        }
     }
 
     @Override
     public void playWarningSound() {
-        AudioPlayer.play("resources/sounds/warning.wav", 1);
+        if (ui.isSoundEnabled()) {
+            AudioPlayer.play("resources/sounds/warning.wav", 1);
+        }
     }
 
     @Override
     public void playLevelCompleteSound() {
-        AudioPlayer.play("resources/sounds/level_complete.wav", 1);
+        if (ui.isSoundEnabled()) {
+            AudioPlayer.play("resources/sounds/level_complete.wav", 1);
+        }
     }
 }
