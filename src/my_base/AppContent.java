@@ -1,5 +1,6 @@
 package my_base;
 
+import db.ExcelDB;
 import team.domain.TeamBackend;
 
 /*
@@ -12,6 +13,7 @@ public class AppContent {
 
 	public void initContent() {
 		teamBackend = new TeamBackend();
+		ExcelDB.getInstance().createTableFromExcel("events");
 	};
 
 	public TeamBackend teamBackend() {

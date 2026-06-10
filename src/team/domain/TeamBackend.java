@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import db.ExcelDB;
+import db.ExcelTable;
 import my_base.App;
 import shared.ui_ports.TeamUiPort;
 
@@ -18,6 +20,11 @@ public class TeamBackend {
     private GameState gameState = new GameState(300, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
+
+    private ExcelTable events;
+    private String[][] rows;
+    private final List<EventAction> goodActions = new ArrayList<>();
+    private final List<EventAction> badActions = new ArrayList<>();
 
     private double timeSinceLastBarrage = 0;
     private double timeSinceWarning = 0;
@@ -144,12 +151,72 @@ public class TeamBackend {
             , 1);
         }
     }
+
+    //events
+    private void eventsRegister() {
+        // --- Good Events ---
+        goodActions.add(() -> {
+            for (Damageable d : damageables) {
+                if (d instanceof InterceptorBattery) {
+                    InterceptorBattery b = (InterceptorBattery) d;
+                    b.setMissilesAvailable(b.getMissilesAvailable() + 10);
+                }
+            }
+            return "Added 10 missiles to all batteries!";
+        });
+
+        goodActions.add(() -> {
+            gameState.updateScore(300);
+            teamUiPort().updateScore(gameState.getScore());
+            return "+300 Bonus Points!";
+        });
+
+        goodActions.add(() -> {
+            if (threats.isEmpty()) return "No threats to clear.";
+            threats.clear();
+            teamUiPort().playExplosionSound();
+            publishScene();
+            return "All visible threats neutralized!";
+        });
+
+        // --- Bad Events ---
+        badActions.add(() -> {
+            for (Damageable d : damageables) {
+                if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {
+                    ((Damageable) d).tookHit();
+                    return "A random defense system was disabled!";
+                }
+            }
+            return "Nothing. No active systems found to disable.";
+        });
+
+        badActions.add(() -> {
+            for (int i = 0; i < 4; i++) {
+                AbstractThreat t = spawner.createRandomThreat();
+                if (t != null) threats.add(t);
+            }
+            return "4 sudden threats spawned!";
+        });
+        
+        badActions.add(() -> {
+            for (Damageable d : damageables) {
+                if (d instanceof InterceptorBattery) {
+                    InterceptorBattery b = (InterceptorBattery) d;
+                    b.setMissilesAvailable(Math.max(0, b.getMissilesAvailable() - 5));
+                }
+            }
+            return "Lost 5 missiles from all batteries due to sabotage!";
+        });
+    }
+
     // Called once at UI startup
     public void start() {
         teamUiPort().log("Logging: TeamBackend started");
         resetLevelTimer();
         resetBarrageTimer();
         initializeWorld();
+        events = ExcelDB.getInstance().getTable("events");
+        rows = events.getTableAsMatrix();
         publishScene();
     }
 
@@ -207,6 +274,7 @@ public class TeamBackend {
     private void initializeWorld() {
         threatsRegister();
         assetsRegister();
+        eventsRegister();
 
         int level = gameState.getLevel();
         int groundY = gameState.getGroundY();
@@ -241,6 +309,11 @@ public class TeamBackend {
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
         boolean isTimeUp = (levelElapsedTime >= levelDuration);
 
+        double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
+        if (Math.random() < eventProbabilityThisFrame) {
+            triggerRandomEvent();
+        }
+
         // ייצור איומים וגלים חדשים יקרה אך ורק אם הזמן של השלב עדיין לא נגמר
         if (!isTimeUp) {
             AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
@@ -260,8 +333,9 @@ public class TeamBackend {
         checkCollisions(timeStep);
 
         //  אם אף אמצעי הגנה לא מסוגל לירות יותר - המשחק נגמר מיד בהפסד
-        if (!canAnyDefenseSystemFire()) {
+        if (!canAnyDefenseSystemFire() || gameState.getScore() <= 0) {
             gameState.setStatus(false);
+            App.getPeriodicLoop().setPaused(true); // עצירת הלולאה של המשחק
         }
 
         publishScene();
@@ -574,6 +648,30 @@ public class TeamBackend {
         }
         // אם עברנו על כל המערכות ואף אחת לא יכולה לירות
         return false;
+    }
+
+    private void triggerRandomEvent() {
+        if (rows == null || rows.length == 0) return;
+
+        // Pick a random narrative row from Excel
+        int rowIndex = ThreadLocalRandom.current().nextInt(rows.length);
+        String description = rows[rowIndex][0];
+        String type = rows[rowIndex][1].trim().toUpperCase();
+        
+        boolean isGood = "GOOD".equals(type);
+        String resultText = "No effect";
+
+        // Pick a random mechanical result based on the 'GOOD'/'BAD' tag
+        if (isGood && !goodActions.isEmpty()) {
+            int actionIndex = ThreadLocalRandom.current().nextInt(goodActions.size());
+            resultText = goodActions.get(actionIndex).execute();
+        } else if (!isGood && !badActions.isEmpty()) {
+            int actionIndex = ThreadLocalRandom.current().nextInt(badActions.size());
+            resultText = badActions.get(actionIndex).execute();
+        }
+
+        // Send to UI
+        teamUiPort().showGameEvent(description, resultText, isGood);
     }
 
 }

@@ -2,9 +2,11 @@ package ai.ui;
 
 import java.util.List;
 
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import base.AudioPlayer;
+import base.Params;
 import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
@@ -95,5 +97,11 @@ public class TeamUiPortImpl extends TeamUiPort {
         if (ui.isSoundEnabled()) {
             AudioPlayer.play("resources/sounds/level_complete.wav", 1);
         }
+    }
+
+    //events
+    @Override
+    public void showGameEvent(String description, String result, boolean isGood) {
+        SwingUtilities.invokeLater(() -> ui.showEvent(description, isGood, result));
     }
 }

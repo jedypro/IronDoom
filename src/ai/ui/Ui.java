@@ -24,6 +24,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -480,6 +481,53 @@ public class Ui {
         });
     }
 
+    public void showEvent(String description, boolean isGood, String result) {
+        // This method is called on the Swing EDT.
+        
+        // 1. Pause the game if it's currently running.
+        final boolean wasPausedBeforeEvent = this.paused;
+        if (!wasPausedBeforeEvent) {
+            paused = true;
+            if (mainRouter != null) {
+                mainRouter.route("/team/pause", Params.of());
+            }
+            if (gameCanvas != null) gameCanvas.pauseAnimation();
+            if (aimTimer != null) aimTimer.stop();
+            if (pauseButton != null) pauseButton.setText("Resume");
+            showStatus("Paused");
+        }
+
+        // 2. Create a custom panel for the dialog for better styling.
+        JPanel messagePanel = new JPanel(new BorderLayout(10, 10));
+        messagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // The description is in Hebrew. Using HTML for styling and alignment.
+        JLabel descriptionLabel = new JLabel("<html><div style='text-align: center; width: 300px;'>" + description + "</div></html>");
+        descriptionLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        descriptionLabel.setForeground(isGood ? new Color(34, 139, 34) : new Color(178, 34, 34));
+        messagePanel.add(descriptionLabel, BorderLayout.NORTH);
+
+        JLabel resultLabel = new JLabel("<html><div style='text-align: center; width: 300px;'><b>Effect:</b> " + result + "</div></html>");
+        resultLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        messagePanel.add(resultLabel, BorderLayout.CENTER);
+
+        String title = isGood ? "Good News!" : "Bad News!";
+        int messageType = isGood ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE;
+
+        // Show the modal dialog. This blocks until the user clicks "OK".
+        JOptionPane.showMessageDialog(frame, messagePanel, title, messageType);
+
+        // 3. Resume the game if it wasn't paused before the event.
+        if (!wasPausedBeforeEvent) {
+            paused = false;
+            if (mainRouter != null) mainRouter.route("/team/resume", Params.of());
+            if (gameCanvas != null) gameCanvas.resumeAnimation();
+            if (aimTimer != null) aimTimer.start();
+            if (pauseButton != null) pauseButton.setText("Pause");
+            showStatus("Running");
+        }
+    }
+
     private JPanel createGameOverPanel() {
         JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
             @Override
@@ -845,6 +893,20 @@ public class Ui {
         }
     }
 
+    
+
+    public void triggerExplosionEffect(int x, int y) {
+        if (gameCanvas != null) {
+            gameCanvas.addExplosion(x, y);
+        }
+    }
+
+    public void refresh() {
+        if (gameCanvas != null) {
+            gameCanvas.repaint();
+        }
+    }
+
     public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
         this.threats.clear();
         this.threats.addAll(threats);
@@ -860,23 +922,14 @@ public class Ui {
         if (!running || score <= 0) {
             showGameOverScreen();
         } else if (!settingsScreenActive && !"INTRO".equals(currentScreen) && !UIConstants.CARD_LEVEL_COMPLETE.equals(currentScreen)) {
-            showGameScreen();
+            // התיקון: מעבר למסך המשחק רק אם אנחנו לא כבר בו
+            if (!"GAME".equals(currentScreen)) {
+                showGameScreen();
+            }
         }
         refresh();
         updateBatteryComboBoxItems(damageables);
         updateBatteryInfoDisplay();
-    }
-
-    public void triggerExplosionEffect(int x, int y) {
-        if (gameCanvas != null) {
-            gameCanvas.addExplosion(x, y);
-        }
-    }
-
-    public void refresh() {
-        if (gameCanvas != null) {
-            gameCanvas.repaint();
-        }
     }
 
      public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
@@ -898,7 +951,10 @@ public class Ui {
         if (!running || score <= 0) {
             showGameOverScreen();
         } else if (!settingsScreenActive && !"INTRO".equals(currentScreen)) {
-            showGameScreen();
+            // התיקון: מעבר למסך המשחק רק אם אנחנו לא כבר בו
+            if (!"GAME".equals(currentScreen)) {
+                showGameScreen();
+            }
         }
         refresh();
         updateBatteryComboBoxItems(damageables);
