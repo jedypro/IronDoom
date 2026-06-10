@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam dpi 300
+skinparam state {
+  BackgroundColor LightCyan
+  BorderColor DarkBlue
+  FontName Arial
+}
+
+[*] --> IntroScreen : System Boot
+
+IntroScreen --> ActiveGame : "Start" clicked / Backend.generateAssets(), createBatteries()
+
+state ActiveGame {
+    
+    state "Physics & Entities" as Physics {
+        [*] --> Simulating
+        
+        ' Internal transitions using the Event [Guard] / Action format
+        Simulating : tick / update entities X,Y coordinates
+        Simulating : tick [collision detected between interceptor and threat] / trigger explode(), push explosion graphic
+        Simulating : tick [threat hit asset] / reduce score, delete threat, push explosion graphic
+        Simulating : tick [threat hit ground OR out of bounds] / delete threat
+    }
+    
+    --
+
+    state "Threat Spawner" as Spawner {
+        [*] --> Spawning
+        Spawning : tick [spawn time elapsed] / instantiate new Threat
+
+        
+    }
+
+    --
+    
+    state "User Interface (HUD)" as UI {
+        [*] --> WaitingForInput
+        
+        WaitingForInput : LEFT or RIGHT arrow / update currentSliderAngle
+        WaitingForInput : UP or DOWN arrow / update selectedBatteryId
+        WaitingForInput : 'Z' or 'X' key / route fire command (Single/Burst)
+    }
+    
+    --
+    
+    state "Interceptor Battery" as Battery {
+        [*] --> ReadyToFire
+        ReadyToFire --> Launching : attemptDefense() [inventory > 0]
+        Launching --> ReadyToFire : [inventory > 0]
+        Launching --> OutOfAmmo : [inventory == 0]
+        
+        ReadyToFire --> Destroyed : hit by threat
+        OutOfAmmo --> Destroyed : hit by threat
+    }
+}
+
+' --- Game Over & Success Exits ---
+ActiveGame --> LevelCompleteScreen : tick [Time Elapsed AND Score > 0 AND Active Threats == 0]
+ActiveGame --> GameOverScreen : tick [Score <= 0 OR all batteries destroyed]
+
+' --- End Screens Actions ---
+LevelCompleteScreen --> ActiveGame : "To the next level" clicked / Backend.nextLevel()
+GameOverScreen --> ActiveGame : "Play Again" clicked / Restart current level
+GameOverScreen --> [*] : "Exit Game" clicked / Terminate
+
+' --- User Navigation Exits ---
+ActiveGame --> IntroScreen : "Home" clicked
+ActiveGame --> PauseScreen : "Pause" clicked
+PauseScreen --> ActiveGame : "Resume" clicked
+
+ActiveGame --> SettingsScreen : "Settings" clicked
+SettingsScreen --> IntroScreen : "Apply" clicked / Save level selection
+
+ActiveGame --> ActiveGame : "Restart Level" clicked / Restart current level
+
+@enduml

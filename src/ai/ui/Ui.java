@@ -89,6 +89,7 @@ public class Ui {
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<DefenseEntity> interceptors = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
+    AbstractDefenseSystem selectedDefenseSystem = null;
 
     private boolean running = true;
     private int currentLevel = 1;
@@ -103,7 +104,8 @@ public class Ui {
     private javax.swing.Timer warningTimer;
     private int aimDirection = 0; // -1 = left, +1 = right, 0 = none
     private static final int AIM_INTERVAL_MS = 30;
-    private static final int AIM_DELTA = 4; // degrees per tick
+    private static final int MISSILE_AIM_DELTA = 4; // degrees per tick
+    private static final int LASER_AIM_DELTA = 1; // degrees per tick
     private CountDownLatch startupComplete = new CountDownLatch(1);
     private int currentSliderAngle = 90; // 90 מעלות = מכוון ישר למעלה
 
@@ -297,9 +299,16 @@ public class Ui {
         aimTimer = new javax.swing.Timer(AIM_INTERVAL_MS, ev -> {
             if (aimDirection != 0) {
                 int val = angleSlider.getValue();
-                int delta = aimDirection * AIM_DELTA;
-                int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
-                if (newVal != val) angleSlider.setValue(newVal);
+                if(selectedDefenseSystem instanceof InterceptorBattery) {
+                    int delta = aimDirection * MISSILE_AIM_DELTA;
+                    int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
+                    if (newVal != val) angleSlider.setValue(newVal);
+                }
+                else if(selectedDefenseSystem instanceof LaserBattery) {
+                    int delta = aimDirection * LASER_AIM_DELTA;
+                     int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
+                    if (newVal != val) angleSlider.setValue(newVal);
+                }
             }
         });
 
@@ -397,6 +406,8 @@ public class Ui {
                 System.out.println("Triple Fire - " + defenseType + " 3: System " + selectedBatteryId + " | Angle: " + angle3);
                 mainRouter.route("/team/launchDefense", params3);
             }
+
+
         });
 
         // Toggle pause/resume with Space
@@ -1573,8 +1584,8 @@ public class Ui {
                     double pulse = 1.0 + 0.2 * Math.sin(time / 40.0); // קצב הפעימה של הלייזר
 
                     int coreWidth = Math.max(1, (int)(toScreenLen(4) * pulse));
-                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(12) * pulse));
-                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(26) * pulse));
+                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(10) * pulse));
+                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(20) * pulse));
 
                     // שכבה 1: הילה חיצונית (כחול כהה שקוף)
                     g2.setColor(new Color(0, 100, 255, 60));
@@ -1734,9 +1745,8 @@ public class Ui {
             return;
         }
 
-        AbstractDefenseSystem selectedDefenseSystem = null;
         for (Damageable d : damageables) {
-            if (d instanceof AbstractDefenseSystem) { // Check if it's a defense system
+            if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem)d).isActive()) { // Check if it's a defense system
                 AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
                 if (ds.getId() == selectedBatteryId) {
                     selectedDefenseSystem = ds;

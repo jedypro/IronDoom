@@ -400,7 +400,7 @@ public class TeamBackend {
                         double contactTime = threatLaserContactTime.getOrDefault(threat.getId(), 0.0) + timeStep;
                         threatLaserContactTime.put(threat.getId(), contactTime);
                         
-                        if (contactTime >= 0.1) {
+                        if (contactTime >= 0.05) {
                             gameState.updateScore(10); // Score for hitting a threat with laser
                             threatIterator.remove();
                             teamUiPort().updateScore(gameState.getScore());
