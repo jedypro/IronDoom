@@ -281,7 +281,7 @@ public class TeamBackend {
                 barrageWarningScheduled = false;
                 timeSinceLastBarrage = 0;
                 teamUiPort().showWarning("Barrage incoming now: " + pendingBarrageSize + " threats!");
-
+                teamUiPort().playWarningSound();
                 for (int i = 0; i < pendingBarrageSize; i++) {
                     AbstractThreat newThreat = spawner.createRandomThreat();
                     if (newThreat != null) {
@@ -317,6 +317,7 @@ public class TeamBackend {
         if (levelElapsedTime >= levelDuration&& threats.isEmpty()) {
             levelCompleted = true;
             teamUiPort().showLevelComplete("Level " + gameState.getLevel() + " complete!");
+            teamUiPort().playLevelCompleteSound();
             App.getPeriodicLoop().setPaused(true);
         }
     }
@@ -335,6 +336,7 @@ public class TeamBackend {
             if (threat.getY() + threat.getHeight() >= gameState.getGroundY()) {
                 teamUiPort().removeEntity(threat.getId());
                 teamUiPort().triggerExplosion(threat.getX(), threat.getY());
+                teamUiPort().playExplosionSound();
                 threatIterator.remove();
             }
         }
@@ -374,6 +376,7 @@ public class TeamBackend {
                     damageable.tookHit();
                     teamUiPort().removeEntity(threat.getId());
                     teamUiPort().triggerExplosion(threat.getX(), threat.getY());
+                    teamUiPort().playExplosionSound();
                     teamUiPort().updateScore(gameState.getScore());
                     threatIterator.remove();
                     threatDestroyed = true;
@@ -408,6 +411,7 @@ public class TeamBackend {
                                 (int) (threat.getX() + threat.getLength() / 2.0),
                                 (int) (threat.getY() + threat.getHeight() / 2.0)
                             );
+                            teamUiPort().playInterceptSound();
                             threatDestroyed = true;
                             threatLaserContactTime.remove(threat.getId());
                             break; // Stop checking this threat, it's destroyed
@@ -435,6 +439,7 @@ public class TeamBackend {
                         (threat.getX() + interceptor.getX()) / 2,
                         (threat.getY() + interceptor.getY()) / 2
                     );
+                    teamUiPort().playInterceptSound();
                     threatDestroyed = true;
                     threatLaserContactTime.remove(threat.getId());
                     break;
