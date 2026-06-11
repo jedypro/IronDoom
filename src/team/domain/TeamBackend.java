@@ -20,6 +20,7 @@ public class TeamBackend {
     private GameState gameState = new GameState(300, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
+    private PopulationManager populationManager = new PopulationManager();
 
     private ExcelTable events;
     private String[][] rows;
@@ -222,6 +223,7 @@ public class TeamBackend {
 
     public void resetGame() {
         threats.clear();
+        populationManager.reset();
         activeInterceptors.clear();
         damageables.clear();
         // Preserve the current difficulty level when resetting the game.
@@ -236,6 +238,7 @@ public class TeamBackend {
 
     public void nextLevel() {
         gameState.setLevel(gameState.getLevel() + 1);
+        populationManager.reset();
         resetLevelTimer();
         resetBarrageTimer();
         // Clear active threats and interceptors so the next level starts clean
@@ -304,6 +307,8 @@ public class TeamBackend {
     public void doStep(double timeStep) {
         updateThreatPositions(timeStep);
         updateInterceptorPositions(timeStep);
+
+        populationManager.update(timeStep, gameState.getGroundY(), damageables);
 
         // בדיקה האם הזמן המוקצב לשלב כבר חלף
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
@@ -399,6 +404,7 @@ public class TeamBackend {
     private void publishScene() {
         teamUiPort().updateLevel(gameState.getLevel());
         teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), gameState.getScore(), gameState.isStatus());
+        teamUiPort().displayCivilians(populationManager.getCivilians());
     }
 
     private void updateThreatPositions(double timeStep) {
@@ -448,6 +454,9 @@ public class TeamBackend {
             for (Damageable damageable : damageables) {
                 if (damageable.checkHit(threat.getX(), threat.getY())) {
                     damageable.tookHit();
+                    if (damageable instanceof GroundAsset) {
+                        populationManager.notifyBuildingHit((GroundAsset) damageable);
+                    }
                     teamUiPort().removeEntity(threat.getId());
                     teamUiPort().triggerExplosion(threat.getX(), threat.getY());
                     teamUiPort().playExplosionSound();

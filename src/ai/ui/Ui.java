@@ -42,6 +42,7 @@ import team.domain.InterceptorBattery;
 import team.domain.InterceptorMissile;
 import team.domain.UAV;
 import team.domain.AbstractDefenseSystem;
+import team.domain.Civilian;
 import team.domain.LightShield;
 
 public class Ui {
@@ -92,6 +93,7 @@ public class Ui {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<DefenseEntity> interceptors = new ArrayList<>();
+    private final List<Civilian> civilians = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
 
     private boolean running = true;
@@ -100,6 +102,7 @@ public class Ui {
     private String currentScreen = "INTRO";
     private String lastScreenBeforeSettings = "INTRO";
     private java.awt.Image settingsBackgroundImage;
+    private java.awt.Image[] civilianImages = new java.awt.Image[3];
     private boolean paused = true;
     private JButton pauseButton;
     private boolean soundEnabled = true;
@@ -111,6 +114,8 @@ public class Ui {
     private static final int AIM_DELTA = 4; // degrees per tick
     private CountDownLatch startupComplete = new CountDownLatch(1);
     private int currentSliderAngle = 90; // 90 מעלות = מכוון ישר למעלה
+    private int lastScore = -1;
+    private final Map<Integer, Boolean> batteryStates = new HashMap<>();
 
     public void setUiPorts() {
         uiInstance = new TeamUiPortImpl(this);
@@ -162,6 +167,7 @@ public class Ui {
         warningLabel.setForeground(Color.RED);
 
         settingsBackgroundImage = loadSettingsBackgroundImage();
+        loadCivilianImages();
         gameCanvas = new GameCanvas();
         frame.setLayout(new BorderLayout());
 
@@ -302,7 +308,11 @@ public class Ui {
         aimTimer = new javax.swing.Timer(AIM_INTERVAL_MS, ev -> {
             if (aimDirection != 0) {
                 int val = angleSlider.getValue();
-                int delta = aimDirection * AIM_DELTA;
+                int currentDelta = AIM_DELTA;
+                if ("LASER".equals(getSelectedDefenseType())) {
+                    currentDelta = 1; // שינוי זווית עדין יותר ללייזר
+                }
+                int delta = aimDirection * currentDelta;
                 int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
                 if (newVal != val) angleSlider.setValue(newVal);
             }
@@ -429,6 +439,14 @@ public class Ui {
     }
 
     public void updateScore(int score) {
+        if (this.lastScore != -1 && score < this.lastScore) {
+            int diff = score - this.lastScore;
+            if (gameCanvas != null && !gameCanvas.explosions.isEmpty()) {
+                Explosion lastExp = gameCanvas.explosions.get(gameCanvas.explosions.size() - 1);
+                gameCanvas.addFloatingText(lastExp.x, lastExp.y, String.valueOf(diff), Color.RED);
+            }
+        }
+        this.lastScore = score;
         if (scoreLabel != null) {
             SwingUtilities.invokeLater(() -> scoreLabel.setText("Score: " + score));
         }
@@ -754,6 +772,18 @@ public class Ui {
         return new javax.swing.ImageIcon("src/ai/ui/Images/open_pic.png").getImage();
     }
 
+    private void loadCivilianImages() {
+        String[] fileNames = {"oz.png", "yedidya.png", "gimdani.png"};
+        for (int i = 0; i < 3; i++) {
+            java.net.URL resource = Ui.class.getResource("/ai/ui/Images/" + fileNames[i]);
+            if (resource != null) {
+                civilianImages[i] = new javax.swing.ImageIcon(resource).getImage();
+            } else {
+                civilianImages[i] = new javax.swing.ImageIcon("src/ai/ui/Images/" + fileNames[i]).getImage();
+            }
+        }
+    }
+
     private JButton createStyledButton(String text, int fontSize) {
         JButton button = new JButton(text);
         button.setFont(button.getFont().deriveFont(Font.BOLD, (float) fontSize));
@@ -907,7 +937,29 @@ public class Ui {
         }
     }
 
+    // בדיקה האם סוללת הגנה נפגעה מאז העדכון הקודם (כלומר הפכה ללא פעילה)
+    private void checkBatteryHits(List<Damageable> currentDamageables) {
+        for (Damageable d : currentDamageables) {
+            if (d instanceof AbstractDefenseSystem) {
+                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+                int id = ds.getId();
+                boolean currentlyActive = ds.isActive();
+                
+                // נבדוק האם הסוללה הייתה פעילה בזיכרון שלנו קודם, וכעת היא כבר לא פעילה
+                if (batteryStates.containsKey(id) && batteryStates.get(id) && !currentlyActive) {
+                    if (gameCanvas != null) {
+                        gameCanvas.addFloatingText(ds.getX(), ds.getY(), "DISABLED!", Color.RED);
+                    }
+                }
+                
+                // נעדכן את הזיכרון שלנו לסטטוס הנוכחי
+                batteryStates.put(id, currentlyActive);
+            }
+        }
+    }
+
     public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
+        checkBatteryHits(damageables);
         this.threats.clear();
         this.threats.addAll(threats);
         this.damageables.clear();
@@ -937,6 +989,7 @@ public class Ui {
         if ("LEVEL_COMPLETE".equals(this.currentScreen)) {
         return; 
         }
+        checkBatteryHits(damageables);
         this.threats.clear();
         this.threats.addAll(threats);
         this.damageables.clear();
@@ -960,6 +1013,11 @@ public class Ui {
         updateBatteryComboBoxItems(damageables);
         updateBatteryInfoDisplay();
     }
+
+    public void setCivilians(List<Civilian> newCivilians) {
+        this.civilians.clear();
+        this.civilians.addAll(newCivilians);
+    }
     
     private static class Explosion {
         final int x;
@@ -977,8 +1035,29 @@ public class Ui {
         }
     }
 
+    private static class FloatingText {
+        final int x;
+        final int y;
+        final String text;
+        final Color color;
+        final long createdAt;
+
+        FloatingText(int x, int y, String text, Color color) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.createdAt = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - createdAt > 1500; // הזמן שייקח לטקסט להעלם (1.5 שניות)
+        }
+    }
+
     private class GameCanvas extends JPanel implements ActionListener {
         private final List<Explosion> explosions = new ArrayList<>();
+        private final List<FloatingText> floatingTexts = new ArrayList<>();
         private final Timer repaintTimer = new Timer(33, this);
         
         private final int[] starXs = new int[70];
@@ -1036,9 +1115,14 @@ public class Ui {
             explosions.add(new Explosion(x, y));
         }
 
+        void addFloatingText(int x, int y, String text, Color color) {
+            floatingTexts.add(new FloatingText(x, y, text, color));
+        }
+
         @Override
         public void actionPerformed(ActionEvent e) {
             explosions.removeIf(Explosion::isExpired);
+            floatingTexts.removeIf(FloatingText::isExpired);
             repaint();
         }
 
@@ -1076,9 +1160,11 @@ public class Ui {
 
             drawBackground(g2d, groundY);
             drawGroundAssets(g2d, groundY, animationTick);
+            drawCivilians(g2d, animationTick);
             drawThreats(g2d, animationTick);
             drawInterceptors(g2d, animationTick);
             drawExplosions(g2d);
+            drawFloatingTexts(g2d);
             g2d.dispose();
         }
 
@@ -1431,6 +1517,7 @@ public class Ui {
                     if (!battery.isActive()) {
                         g.setColor(new Color(255, 0, 0, 128));
                         g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
+                        drawDamageSmoke((Graphics2D) g, bx, by - toScreenLen(10));
                     }
                 } else if (damageable instanceof LaserBattery) {
                     LaserBattery laserBatt = (LaserBattery) damageable;
@@ -1504,14 +1591,97 @@ public class Ui {
                     g.setColor(charges < 20 ? Color.RED : (currentLevel >= 7 ? Color.BLACK : Color.WHITE));
                     // כאן התיקון: שינינו ל- plus toScreenLen(20)
                     g.drawString("Ammo: " + charges, bx - toScreenLen(15), by + toScreenLen(20));
-
                     if (!laserBatt.isActive()) {
                         g.setColor(new Color(255, 0, 0, 128));
                         g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
+                        drawDamageSmoke((Graphics2D) g, bx, by - toScreenLen(10)); // <--- השורה שנוספה
                     }
                 }
             }
         }
+        private void drawDamageSmoke(Graphics2D g, int cx, int cy) {
+            long time = System.currentTimeMillis();
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            for (int i = 0; i < 4; i++) {
+                long cycle = 1500; // כל "בועת" עשן חיה במשך 1.5 שניות
+                long t = (time + i * (cycle / 4)) % cycle;
+                double progress = (double) t / cycle; // מ-0 עד 1.0 (מחשב את התקדמות האנימציה)
+                
+                int smokeSize = toScreenLen(15) + (int)(progress * toScreenLen(35)); // העשן גדל ככל שהוא עולה
+                int smokeX = cx - smokeSize / 2 + (int)(Math.sin(time / 250.0 + i) * toScreenLen(10)); // ריחוף קל לצדדים (אפקט רוח)
+                int smokeY = cy - (int)(progress * toScreenLen(80)); // העשן עולה כלפי מעלה
+                
+                int alpha = (int)(200 * (1.0 - progress)); // העשן נהיה שקוף ונעלם לקראת הסוף
+                g2.setColor(new Color(30, 30, 30, Math.max(0, alpha))); // צבע שחור/אפור כהה
+                g2.fillOval(smokeX, smokeY, smokeSize, smokeSize);
+            }
+            g2.dispose();
+        }
+        private void drawCivilians(Graphics2D g, boolean isTick) {
+            long time = System.currentTimeMillis();
+            for (Civilian c : civilians) {
+                if (c.getState() == Civilian.State.HIDING) continue;
+
+                int cx = toScreenX(c.getX());
+                int cy = toScreenY(c.getY());
+
+                // --- הוספת אפקט קפיצה ל-UI ---
+                int jumpOffset = 0;
+                if (c.getState() == Civilian.State.FLEEING) {
+                    // קפיצות מהירות כשהאזרח בורח בבהלה
+                    long fleeCycle = 250;
+                    long fleeTime = (time + c.getId() * 50L) % fleeCycle;
+                    double t = fleeTime / (double) fleeCycle;
+                    jumpOffset = (int) (Math.sin(t * Math.PI) * toScreenLen(10));
+                } else {
+                    // קפיצה קטנה פעם ב- כמה שניות בהליכה רגילה למחסה
+                    long cycleDuration = 1500 + (c.getId() * 311L) % 1500;
+                    long timeInCycle = (time + c.getId() * 100L) % cycleDuration;
+                    if (timeInCycle < 350) {
+                        double t = timeInCycle / 350.0;
+                        jumpOffset = (int) (Math.sin(t * Math.PI) * toScreenLen(12));
+                    }
+                }
+                cy -= jumpOffset;
+                // ------------------------------
+
+                int width = toScreenLen(24);
+                int height = toScreenLen(36);
+
+                java.awt.Image img = civilianImages[c.getId() % 3];
+                if (img != null) {
+                    int imgW = img.getWidth(null);
+                    int imgH = img.getHeight(null);
+                    if (imgW > 0 && imgH > 0) {
+                        width = toScreenLen(imgW);
+                        height = toScreenLen(imgH);
+                        if (imgH > 60) { // אם התמונה המקורית גדולה מדי נשמור על פרופורציות בגובה סביר
+                            height = toScreenLen(36);
+                            width = (int) (height * ((double) imgW / imgH));
+                        }
+                    }
+                    g.drawImage(img, cx - width/2, cy - height, width, height, null);
+                } else {
+                    // גיבוי במקרה שהתמונה לא נמצאה - רק כאן יצויר הריבוע הוורוד
+                    g.setColor(new Color(255, 200, 200));
+                    g.fillRect(cx - width/2, cy - height, width, height);
+                    g.setColor(Color.BLACK);
+                    g.drawRect(cx - width/2, cy - height, width, height);
+                }
+
+                if (c.getState() == Civilian.State.FLEEING) {
+                    // ציור האש מעל הראש כאשר הוא בורח מהמבנה
+                    int flameSize = toScreenLen(12);
+                    g.setColor(isTick ? Color.RED : Color.ORANGE);
+                    g.fillOval(cx - flameSize/2, cy - height - flameSize, flameSize, flameSize);
+                    g.setColor(Color.YELLOW);
+                    g.fillOval(cx - flameSize/4, cy - height - flameSize + toScreenLen(2), flameSize/2, flameSize/2);
+                }
+            }
+        }
+
 
         private void drawThreats(Graphics2D g, boolean isTick) {
             Color uavBodyColor, uavCockpitColor, missileBodyColor;
@@ -1756,6 +1926,23 @@ public class Ui {
                 
                 g.setColor(new Color(255, 255, 200, alpha));
                 g.fillRect(cx - size / 6, cy - size / 6, size / 3, size / 3);
+            }
+        }
+        
+        private void drawFloatingTexts(Graphics2D g) {
+            long now = System.currentTimeMillis();
+            for (FloatingText ft : floatingTexts) {
+                long age = now - ft.createdAt;
+                int alpha = (int) Math.max(0, 255 - (age * 255L / 1500));
+                // ה-Y עולה מעלה ככל שהזמן עובר
+                int floatOffset = (int) (age / 20.0); 
+
+                int cx = toScreenX(ft.x);
+                int cy = toScreenY(ft.y) - floatOffset - toScreenLen(20);
+
+                g.setFont(g.getFont().deriveFont(Font.BOLD, Math.max(16f, (float) toScreenLen(24))));
+                g.setColor(new Color(ft.color.getRed(), ft.color.getGreen(), ft.color.getBlue(), alpha));
+                g.drawString(ft.text, cx - g.getFontMetrics().stringWidth(ft.text) / 2, cy);
             }
         }
 

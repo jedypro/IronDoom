@@ -25,6 +25,7 @@ public abstract class TeamUiPort {
     public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors,  int score, boolean running);
     public abstract void showWarning(String message);
     public abstract void showLevelComplete(String message);
+    public abstract void displayCivilians(java.util.List<team.domain.Civilian> civilians);
 
     //sound effects
     public abstract void playExplosionSound();

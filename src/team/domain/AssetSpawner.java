@@ -25,7 +25,7 @@ public class AssetSpawner {
     private final List<Integer> occupiedXPositions = new ArrayList<>();
     
     private int assetIdCounter = 1;
-    private final int SAFE_MARGIN = 200;
+    private final int SAFE_MARGIN = 40; // מרווח ביטחון מסביב למבנה
 
     // פונקציות רישום
     public void registerRegularAsset(AssetCreator creator) {
@@ -47,11 +47,17 @@ public class AssetSpawner {
 
         int count = 1 + level; 
         for (int i = 0; i < count; i++) {
-            int startX = findSafeX();
+            int startX = findSafeX(240); // רוחב מקסימלי אפשרי של מבנה כדי להבטיח מציאת שטח פנוי
             if (startX != -1) {
-                occupiedXPositions.add(startX); // Mark the position as occupied
                 int index = ThreadLocalRandom.current().nextInt(regularAssets.size());
-                spawned.add(regularAssets.get(index).create(assetIdCounter++, startX, groundY));
+                Damageable newAsset = regularAssets.get(index).create(assetIdCounter++, startX, groundY);
+                spawned.add(newAsset);
+                
+                if (newAsset instanceof GroundAsset) {
+                    int width = ((GroundAsset) newAsset).getWidth();
+                    occupiedXPositions.add(startX); // שמירת נקודת התחלה
+                    occupiedXPositions.add(startX + width); // שמירת נקודת סיום
+                }
             }
         }
         return spawned;
@@ -69,11 +75,13 @@ public class AssetSpawner {
             for (RegisteredCreator rc : defenseSystems) {
                 if (rc.creator.create(0, 0, 0) instanceof LaserBattery) {
                     if (rc.currentSpawns < rc.maxSpawns) {
-                        int startX = findSafeX();
+                        int startX = findSafeX(60); // 60 רוחב משוער של סוללת לייזר
                         if (startX != -1) {
-                            occupiedXPositions.add(startX);
                             rc.currentSpawns++;
-                            spawned.add(rc.creator.create(assetIdCounter++, startX, groundY));
+                            // ל-UI נקודת ה-X של סוללה היא האמצע שלה, לכן נעביר startX + 30
+                            spawned.add(rc.creator.create(assetIdCounter++, startX + 30, groundY));
+                            occupiedXPositions.add(startX); // נקודת התחלה
+                            occupiedXPositions.add(startX + 60); // נקודת סיום
                             count--; // Decrement remaining count
                         }
                     }
@@ -83,9 +91,8 @@ public class AssetSpawner {
         }
         
         for (int i = 0; i < count; i++) {
-            int startX = findSafeX();
+            int startX = findSafeX(60); // 60 רוחב משוער של סוללה רגילה
             if (startX != -1) {
-                occupiedXPositions.add(startX); // Mark the position as occupied
                 
                 // Get available creators
                 List<RegisteredCreator> available = new ArrayList<>();
@@ -99,7 +106,11 @@ public class AssetSpawner {
                     int index = ThreadLocalRandom.current().nextInt(available.size());
                     RegisteredCreator chosen = available.get(index);
                     chosen.currentSpawns++;
-                    spawned.add(chosen.creator.create(assetIdCounter++, startX, groundY));
+                    // כיוון מדויק לאמצע הסוללה
+                    Damageable newDefense = chosen.creator.create(assetIdCounter++, startX + 30, groundY);
+                    spawned.add(newDefense);
+                    occupiedXPositions.add(startX); // נקודת התחלה
+                    occupiedXPositions.add(startX + 60); // נקודת סיום
                 }
             }
         }
@@ -107,13 +118,16 @@ public class AssetSpawner {
     }
 
     // פונקציית עזר למציאת קואורדינטת X שאינה חופפת לנכסים קיימים
-    private int findSafeX() {
+    private int findSafeX(int expectedWidth) {
         for (int attempts = 0; attempts < 50; attempts++) {
-            int candidateX = ThreadLocalRandom.current().nextInt(150, 1300);
+            int candidateX = ThreadLocalRandom.current().nextInt(40, 1160 - expectedWidth);
             boolean isSafe = true;
 
-            for (int occupiedX : occupiedXPositions) {
-                if (Math.abs(occupiedX - candidateX) <  SAFE_MARGIN) {
+            for (int i = 0; i < occupiedXPositions.size(); i += 2) {
+                int startX = occupiedXPositions.get(i);
+                int endX = occupiedXPositions.get(i + 1);
+                // מונע חפיפה - האם ההתחלה של החדש נוגעת בסוף של הקיים (כולל הריווח) ולהיפך
+                if (candidateX < endX + SAFE_MARGIN && candidateX + expectedWidth > startX - SAFE_MARGIN) {
                     isSafe = false;
                     break;
                 }

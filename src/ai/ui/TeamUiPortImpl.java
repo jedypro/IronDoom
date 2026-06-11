@@ -11,6 +11,7 @@ import shared.ui_ports.TeamUiPort;
 import team.domain.AbstractThreat;
 import team.domain.Damageable;
 import team.domain.DefenseEntity;
+import team.domain.Civilian;
 import team.domain.InterceptorMissile;
 
 public class TeamUiPortImpl extends TeamUiPort {
@@ -18,6 +19,11 @@ public class TeamUiPortImpl extends TeamUiPort {
 
     public TeamUiPortImpl(Ui ui) {
         this.ui = ui;
+    }
+
+    @Override
+    public void displayCivilians(List<Civilian> civilians) {
+        SwingUtilities.invokeLater(() -> ui.setCivilians(civilians));
     }
 
     @Override
