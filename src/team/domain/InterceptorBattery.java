@@ -58,7 +58,7 @@ public DefenseEntity attemptDefense(TargetingParams params) {
             double vy = -POWER * Math.sin(rad);
 
             // Create the missile at the battery's current ground position
-            InterceptorMissile missile = new InterceptorMissile(this.getX(), this.getY(), vx, vy);
+            InterceptorMissile missile = new InterceptorMissile(this.getX(), this.getY(), vx, vy, this.getId());
             
             // Use the standard ballistic flight path for now.
             missile.setMovementStrategy(new BallisticMovementStrategy());

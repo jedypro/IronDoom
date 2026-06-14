@@ -58,7 +58,7 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
         if (params instanceof LaserTargetingParams) {
             double angle = ((LaserTargetingParams) params).getAngle();
             // Create a LightShield at the battery's position
-            LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this, angle, LASER_RANGE, LASER_DURATION_SECONDS);
+            LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this, angle, LASER_RANGE, LASER_DURATION_SECONDS, this.getId());
             laserChargesAvailable--; // Lasers consume ammo
             return laser;
         }

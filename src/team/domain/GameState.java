@@ -7,6 +7,7 @@ public class GameState {
     private int level;
     private boolean status;
     private int groundY = DEFAULT_GROUND_Y;
+    private boolean isEndlessMode = false;
     // Constructor
     public GameState(int score, int level, boolean status) {
         this.score = score;
@@ -59,5 +60,11 @@ public class GameState {
             this.status = false;
         }
         return !status;
+    }
+    public boolean isEndlessMode() {
+        return isEndlessMode;
+    }
+    public void setMode(boolean isEndlessMode) {
+        this.isEndlessMode = isEndlessMode;
     }
 }

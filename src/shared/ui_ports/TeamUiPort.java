@@ -1,5 +1,12 @@
 package shared.ui_ports;
 
+import java.util.List;
+
+import team.domain.Gift;
+import team.domain.AbstractThreat;
+import team.domain.Damageable;
+import team.domain.DefenseEntity;
+
 public abstract class TeamUiPort {
 
     private static TeamUiPort instance;
@@ -22,7 +29,7 @@ public abstract class TeamUiPort {
     public abstract void triggerExplosion(int x, int y);
     public abstract void updateScore(int score);
     public abstract void updateLevel(int level);
-    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors,  int score, boolean running);
+    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors, java.util.List<team.domain.Gift> gifts, int score, boolean running);
     public abstract void showWarning(String message);
     public abstract void showLevelComplete(String message);
     public abstract void displayCivilians(java.util.List<team.domain.Civilian> civilians);
@@ -35,4 +42,5 @@ public abstract class TeamUiPort {
 
     //events
     public abstract void showGameEvent(String description, String result, boolean isGood);
+
 }

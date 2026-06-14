@@ -59,6 +59,11 @@ public class teamRouter implements SubRouter {
                 backend.nextLevel();
                 return null;
             }
+            case "/setMode": {
+                boolean isEndlessMode = p.getBoolean(0);
+                backend.getGameState().setMode(isEndlessMode);
+                return null;
+            }
             case "/pause":
                 App.getPeriodicLoop().setPaused(true);
                 return null;

@@ -1,5 +1,5 @@
 package team.domain;
-
+import java.util.Random;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -17,10 +17,13 @@ public class TeamBackend {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<DefenseEntity> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
+    private final List<Gift> activeGifts = new ArrayList<>();
+
     private GameState gameState = new GameState(300, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
     private PopulationManager populationManager = new PopulationManager();
+    private GiftSpawner giftSpawner = new GiftSpawner(1200.0); 
 
     private ExcelTable events;
     private String[][] rows;
@@ -299,6 +302,9 @@ public class TeamBackend {
         return Collections.unmodifiableList(activeInterceptors);
     }
 
+    public java.util.List<Gift> getGifts() {
+        return Collections.unmodifiableList(activeGifts);
+    }
     public GameState getGameState() {
         return gameState;
     }
@@ -307,6 +313,7 @@ public class TeamBackend {
     public void doStep(double timeStep) {
         updateThreatPositions(timeStep);
         updateInterceptorPositions(timeStep);
+        updateGiftPositions(timeStep);
 
         populationManager.update(timeStep, gameState.getGroundY(), damageables);
 
@@ -394,16 +401,28 @@ public class TeamBackend {
         levelElapsedTime += timeStep;
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
         if (levelElapsedTime >= levelDuration&& threats.isEmpty()) {
+            if(gameState.isEndlessMode()) {
+                gameState.advanceLevel();
+                resetLevelTimer();
+                resetBarrageTimer();
+                threatsRegister();
+                Gift newGift = giftSpawner.spawnGift();
+                activeGifts.add(newGift);
+                
+            
+                publishScene();
+            } else {
             levelCompleted = true;
             teamUiPort().showLevelComplete("Level " + gameState.getLevel() + " complete!");
             teamUiPort().playLevelCompleteSound();
             App.getPeriodicLoop().setPaused(true);
+            }
         }
     }
 
     private void publishScene() {
         teamUiPort().updateLevel(gameState.getLevel());
-        teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), gameState.getScore(), gameState.isStatus());
+        teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), getGifts(), gameState.getScore(), gameState.isStatus());
         teamUiPort().displayCivilians(populationManager.getCivilians());
     }
 
@@ -443,6 +462,11 @@ public class TeamBackend {
         }
     }
 
+    private void updateGiftPositions(double timeStep) {
+        for (Gift gift : activeGifts) {
+        gift.updatePosition(timeStep);
+}
+    }
     private Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
 
     private void checkCollisions(double timeStep) {
@@ -532,6 +556,76 @@ public class TeamBackend {
                 // Decay the contact time if not hit by a laser this tick?
                 // Or just reset it? The instruction says it needs 0.3 sec to destroy. Let's reset it if it's not hit.
                 threatLaserContactTime.remove(threat.getId());
+            }
+        }
+
+          
+
+        // --- הוספה: לולאת בדיקת חיתוכים עבור איסוף מתנות ---
+        Iterator<Gift> giftIterator = activeGifts.iterator();
+        while (giftIterator.hasNext()) {
+            Gift gift = giftIterator.next();
+            boolean giftCollected = false;
+
+            Iterator<DefenseEntity> interceptorIterator = activeInterceptors.iterator();
+            while (interceptorIterator.hasNext()) {
+                DefenseEntity interceptor = interceptorIterator.next();
+
+                // מתעלמים ממיירטים שכבר התפוצצו או סיימו את תפקידם
+                if (!interceptor.isActive()) {
+                    continue;
+                }
+
+                // חישוב מרחק בסיסי
+                double dx = gift.getX() - interceptor.getX();
+                double dy = gift.getY() - interceptor.getY();
+                double distance = Math.sqrt(dx * dx + dy * dy);
+
+                // אם המיירט פגע במתנה (רדיוס 50 פיקסלים)
+                if (distance < 50) {
+                    
+                    // 1. זיהוי סוג המתנה וחלוקת הפרס
+                    if (gift.getGiftType() == GiftType.NEW_BATTERY) {
+
+                        List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
+                        damageables.add(newDefense.get(0));
+                        teamUiPort().showGameEvent("Reinforcements!", "New Battery Deployed", true);
+                    } 
+                    else if (gift.getGiftType() == GiftType.AMMO_REFILL) {
+                        // אם מה שפגע במתנה הוא טיל (ולא מגן לייזר), ניתן תחמושת לסוללה הספציפית שירתה אותו
+                        if (interceptor instanceof InterceptorMissile) {
+                            int shooterId = ((InterceptorMissile) interceptor).getSourceBatteryId();
+                            InterceptorBattery shooterBattery = findBatteryById(shooterId);
+                            
+                            if (shooterBattery != null) {
+                                 Random random = new Random();
+                                int numMissiles=  20 + random.nextInt(9) * 5;
+                                shooterBattery.setMissilesAvailable(shooterBattery.getMissilesAvailable() + numMissiles);
+                                teamUiPort().showGameEvent("Ammo Secured!", "+" + numMissiles + " Missiles", true);
+                            }
+                        }
+                    }
+
+                    // 2. הפעלת אפקטים ויזואליים וניקוד
+                    gameState.updateScore(25); // קצת ניקוד בונוס על עצם האיסוף
+                    teamUiPort().updateScore(gameState.getScore());
+                    teamUiPort().triggerExplosion(
+                        (int) ((gift.getX() + interceptor.getX()) / 2),
+                        (int) ((gift.getY() + interceptor.getY()) / 2)
+                    );
+                    teamUiPort().playInterceptSound();
+
+                    // 3. מחיקת האובייקטים מהמסך (כדי לא לאסוף את אותה מתנה פעמיים)
+                    if (interceptor instanceof InterceptorMissile) {
+                        interceptor.explode();
+                        interceptorIterator.remove(); // הטיל מתפוצץ על המתנה ונעלם
+                    }
+                    // (אם זה לייזר שפגע במתנה, הוא לא יימחק וימשיך להאיר לפי הזמן שנשאר לו)
+
+                    giftIterator.remove(); // מוחקים את המתנה עצמה
+                    giftCollected = true;
+                    break; // עוצרים את בדיקת המיירטים למתנה הזו ועוברים למתנה הבאה במסך
+                }
             }
         }
     }

@@ -10,18 +10,24 @@ public class InterceptorMissile extends IdentifiedObject implements DefenseEntit
     private double vy;
     private MovementStrategy movementStrategy;
     boolean active=true;
+    int sourceBatteryId; // To track which battery launched this missile
 
 
     // Constructor - initializes starting position and velocities
-    public InterceptorMissile(double x, double y, double vx, double vy) {
+    public InterceptorMissile(double x, double y, double vx, double vy, int sourceBatteryId) {
         // Generates a globally unique hash number automatically
         super(java.util.UUID.randomUUID().hashCode()); 
         this.x = x;
         this.y = y;
         this.vx = vx;
         this.vy = vy;
-}
+        this.sourceBatteryId = sourceBatteryId;
+    }
 
+  
+    public int getSourceBatteryId() {
+        return sourceBatteryId;
+    }
     // Main update method called on every game tick
     public void updatePosition(double dt) {
         if (movementStrategy != null && active) {

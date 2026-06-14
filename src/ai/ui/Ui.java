@@ -1,5 +1,10 @@
 package ai.ui;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -37,6 +42,8 @@ import team.domain.Damageable;
 import team.domain.DefenseEntity;
 import team.domain.LaserBattery;
 import team.domain.GameState;
+import team.domain.Gift;
+import team.domain.GiftType;
 import team.domain.GroundAsset;
 import team.domain.InterceptorBattery;
 import team.domain.InterceptorMissile;
@@ -57,6 +64,7 @@ public class Ui {
         static final String CARD_SETTINGS = "SETTINGS";
         static final String CARD_GAME_OVER = "GAME_OVER";
         static final String CARD_LEVEL_COMPLETE = "LEVEL_COMPLETE";
+        public static final  String CARD_MODE_SELECT = "MODE_SELECT";
 
         // Default window sizing
         static final int DEFAULT_MAX_WIDTH = 1200;
@@ -93,6 +101,7 @@ public class Ui {
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<DefenseEntity> interceptors = new ArrayList<>();
+    private final List<Gift> gifts = new ArrayList<>();
     private final List<Civilian> civilians = new ArrayList<>();
     private final GameState gameState = new GameState(100, 1, true);
 
@@ -281,6 +290,7 @@ public class Ui {
         rootPanel.add(gameOverPanel, "GAME_OVER");
         rootPanel.add(levelCompletePanel, "LEVEL_COMPLETE");
         rootPanel.add(settingsPanel, "SETTINGS");
+        rootPanel.add(createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
 
         frame.setContentPane(rootPanel);
         showIntroScreen();
@@ -562,7 +572,7 @@ public class Ui {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
         title.setForeground(Color.WHITE);
 
-        JLabel message = new JLabel("Your score reached 0. Try again or exit.");
+        JLabel message = new JLabel("Try again or exit.");
         message.setForeground(new Color(220, 230, 255));
 
         JButton playAgainButton = new JButton("Play Again");
@@ -738,8 +748,12 @@ public class Ui {
         subtitle.setForeground(new Color(220, 220, 220));
 
         JButton playButton = createStyledButton("Play", 20);
-        playButton.addActionListener(e -> showGameScreenFromIntro());
+        //playButton.addActionListener(e -> showGameScreenFromIntro());
 
+        playButton.addActionListener(e -> {
+        cardLayout.show(rootPanel, UIConstants.CARD_MODE_SELECT);
+        }); 
+        
         JButton settingsButton = createStyledButton("Settings", 20);
         settingsButton.addActionListener(e -> showSettingsScreen("INTRO"));
 
@@ -882,7 +896,8 @@ public class Ui {
         }
     }
 
-    private void showGameScreenFromIntro() {
+    private void showGameScreenFromModeSelect(boolean mode) {
+
         if (cardLayout != null && rootPanel != null) {
             currentScreen = "GAME";
             settingsScreenActive = false;
@@ -896,6 +911,7 @@ public class Ui {
             if (aimTimer != null) {
                 aimTimer.start();
             }
+             mainRouter.route("team/setMode", Params.of(mode));
             paused = false;
             if (pauseButton != null) pauseButton.setText("Pause");
             showStatus("Running");
@@ -984,7 +1000,7 @@ public class Ui {
         updateBatteryInfoDisplay();
     }
 
-     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
+     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors,List<Gift> gifts, int score, boolean running) {
         // Ignore incoming game state if we are currently displaying the victory screen
         if ("LEVEL_COMPLETE".equals(this.currentScreen)) {
         return; 
@@ -997,6 +1013,9 @@ public class Ui {
         
         this.interceptors.clear();
         this.interceptors.addAll(interceptors);
+
+        this.gifts.clear();
+        this.gifts.addAll(gifts);
         
         this.running = running;
         updateScore(score);
@@ -1162,6 +1181,7 @@ public class Ui {
             drawGroundAssets(g2d, groundY, animationTick);
             drawCivilians(g2d, animationTick);
             drawThreats(g2d, animationTick);
+            drawGifts(g2d);
             drawInterceptors(g2d, animationTick);
             drawExplosions(g2d);
             drawFloatingTexts(g2d);
@@ -1946,10 +1966,73 @@ public class Ui {
             }
         }
 
+        private void drawGifts(Graphics2D g2d) {
+            if (gifts == null) return;
+            
+            for (Gift gift : gifts) {
+                int gx = toScreenX(gift.getX());
+                int gy = toScreenY(gift.getY());
+                int gw = toScreenLen(gift.getWidth());
+                int gh = toScreenLen(gift.getHeight());
+                
+                // ציור חוטי המצנח (קווים לבנים שעולים למעלה מהתיבה)
+                g2d.setColor(Color.WHITE);
+                g2d.drawLine(gx, gy, gx + gw / 2, gy - gh); // חוט שמאלי
+                g2d.drawLine(gx + gw, gy, gx + gw / 2, gy - gh); // חוט ימני
+                
+                // ציור חופת המצנח (חצי עיגול)
+                g2d.drawArc(gx - gw / 2, gy - gh - gh / 2, gw * 2, gh, 0, 180);
+                
+                // קביעת צבע התיבה לפי סוג המתנה
+                if (gift.getGiftType() == GiftType.NEW_BATTERY) {
+                    g2d.setColor(UIConstants.COLOR_SELECTED_BATTERY); // כחול לסוללה
+                } else {
+                    g2d.setColor(UIConstants.COLOR_BATTERY); // ירוק לתחמושת
+                }
+                
+                // ציור התיבה עצמה
+                g2d.fillRect(gx, gy, gw, gh);
+                
+                // ציור של סימן פלוס (+) לבן על התיבה כדי שתיראה כמו אספקה צבאית/רפואית
+                g2d.setColor(Color.WHITE);
+                g2d.fillRect(gx + gw / 2 - 2, gy + 5, 4, gh - 10); // קו אנכי
+                g2d.fillRect(gx + 5, gy + gh / 2 - 2, gw - 10, 4); // קו אופקי
+            }
+}
+
+
         private void drawMessage(Graphics g, String message) {
             g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
             g.drawString(message, 20, 20);
         }
+    }
+
+    private JPanel createModeSelectPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(UIConstants.COLOR_BACKGROUND);  
+        
+        JLabel title = new JLabel("Select Mission Type");
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
+        title.setForeground(Color.WHITE);
+
+        JButton levelBtn = createStyledButton("Classic Levels", 24);
+        JButton endlessBtn = createStyledButton("Endless Survival", 18);
+        JButton backBtn = createStyledButton("Back", 18);
+
+        levelBtn.addActionListener(e -> showGameScreenFromModeSelect(false));
+        endlessBtn.addActionListener(e -> showGameScreenFromModeSelect(true));
+        backBtn.addActionListener(e -> showIntroScreen());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.insets = new Insets(15, 0, 15, 0);
+        
+        gbc.gridy = 0; panel.add(title, gbc);
+        gbc.gridy = 1; panel.add(levelBtn, gbc);
+        gbc.gridy = 2; panel.add(endlessBtn, gbc);
+        gbc.gridy = 3; panel.add(backBtn, gbc);
+
+        return panel;
     }
 
     private void updateBatteryComboBoxItems(List<Damageable> currentDamageables) {

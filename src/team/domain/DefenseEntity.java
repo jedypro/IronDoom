@@ -11,9 +11,9 @@ public interface DefenseEntity {
      * Essential for tracking updates between the Backend and UI.
      */
     int getId();
-
-    /**
-     * Updates the physical state and position of the entity over time.
+    int getSourceBatteryId(); // For tracking which threat spawned this defense
+    
+     /* Updates the physical state and position of the entity over time.
      * @param dt Delta time (elapsed time since the last frame)
      */
     void updatePosition(double dt);

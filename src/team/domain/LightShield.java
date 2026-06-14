@@ -10,8 +10,9 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
     private double remainingDuration; // How long the laser stays visible
     private boolean active = true;
     private LaserBattery source;
+    private int sourceBatteryId; // To track which battery launched this missile
 
-    public LightShield(int id, LaserBattery source, double angle, double length, double duration) {
+    public LightShield(int id, LaserBattery source, double angle, double length, double duration, int sourceBatteryId) {
         super(id);
         this.source = source;
         this.x = source.getX();
@@ -19,8 +20,12 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
         this.angle = angle;
         this.length = length;
         this.remainingDuration = duration;
+        this.sourceBatteryId = sourceBatteryId;
     }
 
+    public int getSourceBatteryId() {
+        return sourceBatteryId;
+    }
     @Override
     public void updatePosition(double dt) {
         if (active) {
