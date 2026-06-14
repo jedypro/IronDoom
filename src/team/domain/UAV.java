@@ -34,8 +34,8 @@ public class UAV extends AbstractThreat {
 
     private void changeTargetRandomly() {
         // Safe cast to update coordinates
-        if (this.movementStrategy instanceof PoweredFlightStrategy) {
-            PoweredFlightStrategy strategy = (PoweredFlightStrategy) this.movementStrategy;
+        if (this.getMovementStrategy() instanceof PoweredFlightStrategy) {
+            PoweredFlightStrategy strategy = (PoweredFlightStrategy) this.getMovementStrategy();
             
             // Randomize new target within valid screen bounds
             int newTargetX = (int) (Math.random() * 800);
