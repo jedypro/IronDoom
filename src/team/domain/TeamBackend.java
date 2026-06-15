@@ -386,6 +386,15 @@ public class TeamBackend {
             barrageWarningScheduled = true;
             timeSinceWarning = 0;
             teamUiPort().showWarning("Barrage warning: " + pendingBarrageSize + " threats in 3 seconds!");
+            boolean isThereDamagedBattery = false;
+                for (Damageable d : damageables) {
+                    if (d instanceof AbstractDefenseSystem && !((AbstractDefenseSystem) d).isActive()) {
+                        isThereDamagedBattery = true;
+                        break;
+                    }
+                }
+                Gift newGift = giftSpawner.spawnGift(isThereDamagedBattery);
+                activeGifts.add(newGift);
         }
     }
 
@@ -406,8 +415,6 @@ public class TeamBackend {
                 resetLevelTimer();
                 resetBarrageTimer();
                 threatsRegister();
-                Gift newGift = giftSpawner.spawnGift();
-                activeGifts.add(newGift);
                 
             
                 publishScene();
@@ -585,13 +592,13 @@ public class TeamBackend {
                 if (distance < 50) {
                     
                     // 1. זיהוי סוג המתנה וחלוקת הפרס
-                    if (gift.getGiftType() == GiftType.NEW_BATTERY) {
+                    if (gift.getGiftType() == "NEW_BATTERY") {
 
                         List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
                         damageables.add(newDefense.get(0));
                         teamUiPort().showGameEvent("Reinforcements!", "New Battery Deployed", true);
                     } 
-                    else if (gift.getGiftType() == GiftType.AMMO_REFILL) {
+                    else if (gift.getGiftType() == "AMMO_REFILL") {
                         // אם מה שפגע במתנה הוא טיל (ולא מגן לייזר), ניתן תחמושת לסוללה הספציפית שירתה אותו
                         if (interceptor instanceof InterceptorMissile) {
                             int shooterId = ((InterceptorMissile) interceptor).getSourceBatteryId();
@@ -605,6 +612,25 @@ public class TeamBackend {
                             }
                         }
                     }
+                    else if (gift.getGiftType() == "BATTERY_REPAIR") {
+                        for (Damageable d : damageables) {
+                            if (d instanceof AbstractDefenseSystem && !((AbstractDefenseSystem) d).isActive()) {
+                                ((AbstractDefenseSystem) d).repair();
+                        
+                                teamUiPort().showGameEvent("Reinforcements!", "Battery repaired", true);
+                                break; // מתקן רק מערכת אחת פגועה, אז יוצאים מהלולאה אחרי שמצאנו אחת
+                            }
+                            
+                        }
+                    }
+                    else if (gift.getGiftType() == "ADD_SCORE") {
+                        Random random = new Random();
+                        int score = random.nextInt(2, 4) * 100;
+                        gameState.updateScore(score);
+                        teamUiPort().updateScore(gameState.getScore());
+                        teamUiPort().showGameEvent("Reinforcements!", score +" points added", true);
+                    }
+                    
 
                     // 2. הפעלת אפקטים ויזואליים וניקוד
                     gameState.updateScore(25); // קצת ניקוד בונוס על עצם האיסוף

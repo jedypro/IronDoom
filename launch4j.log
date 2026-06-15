@@ -1,0 +1,20 @@
+
+
+Version:	3.50
+CmdLine:	C:\embeddedSystemsCourse\IronDoom\IronDoom.exe --l4j-debug
+JNI:		No
+WOW64:		Yes
+Working dir:	C:\embeddedSystemsCourse\IronDoom\.
+Requires JDK:	No
+Requires 64-Bit: No
+Java min ver:	
+Java max ver:	
+Substitute:	JAVA_HOME = C:\Program Files\Java\bin
+Substitute:	PATH = C:\Program Files\Common Files\Oracle\Java\javapath;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0\;C:\windows\System32\OpenSSH\;C:\Program Files\dotnet\;JAVA_HOME%bin%;C:\Program Files\Git\cmd;C:\Users\ιγιγιδ\AppData\Local\Microsoft\WindowsApps;C:\Users\ιγιγιδ\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\Java\bin
+JRE paths:	C:\Program Files\Java\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0\;C:\windows\System32\OpenSSH\;C:\Program Files\dotnet\;JAVA_HOME%bin%;C:\Program Files\Git\cmd;C:\Users\ιγιγιδ\AppData\Local\Microsoft\WindowsApps;C:\Users\ιγιγιδ\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\Java\bin
+Check launcher:	C:\Program Files\Java\bin\javaw.exe (OK)
+Version string: 1.025.000_002 / 64-Bit (OK)
+Launcher:	C:\Program Files\Java\bin\javaw.exe
+Launcher args:	-jar "C:\embeddedSystemsCourse\IronDoom\IronDoom.exe"
+Args length:	53/32768 chars
+Exit code:	0

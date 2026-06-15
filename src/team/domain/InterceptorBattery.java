@@ -69,4 +69,11 @@ public DefenseEntity attemptDefense(TargetingParams params) {
         }
         return null;
     }
+
+@Override
+public void repair() {
+    this.isActive = true; // Reactivate the battery
+    this.missilesAvailable = missilesAvailable > 60 ? missilesAvailable  : 60; 
 }
+}
+

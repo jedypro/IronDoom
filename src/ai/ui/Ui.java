@@ -1984,7 +1984,7 @@ public class Ui {
                 g2d.drawArc(gx - gw / 2, gy - gh - gh / 2, gw * 2, gh, 0, 180);
                 
                 // קביעת צבע התיבה לפי סוג המתנה
-                if (gift.getGiftType() == GiftType.NEW_BATTERY) {
+                if (gift.getGiftType() == "NEW_BATTERY" || gift.getGiftType() == "REPAIR_BATTERY") {
                     g2d.setColor(UIConstants.COLOR_SELECTED_BATTERY); // כחול לסוללה
                 } else {
                     g2d.setColor(UIConstants.COLOR_BATTERY); // ירוק לתחמושת

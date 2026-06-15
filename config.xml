@@ -3,7 +3,7 @@
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
   <jar>C:\embeddedSystemsCourse\IronDoom\IronDoom.jar</jar>
-  <outfile>C:\embeddedSystemsCourse\IronDoom.exe</outfile>
+  <outfile>C:\embeddedSystemsCourse\IronDoom\IronDoom.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir>.</chdir>
@@ -13,7 +13,7 @@
   <stayAlive>false</stayAlive>
   <restartOnCrash>false</restartOnCrash>
   <manifest></manifest>
-  <icon>C:\embeddedSystemsCourse\IronDoom Release\open_pic .ico</icon>
+  <icon>C:\embeddedSystemsCourse\IronDoom\open_pic .ico</icon>
   <jre>
     <path>%JAVA_HOME%;%PATH%</path>
     <requiresJdk>false</requiresJdk>

@@ -33,7 +33,7 @@ public abstract class AbstractDefenseSystem extends IdentifiedObject {
     public void setY(int y) {
         this.y = y;
     }
-
+    public abstract void repair();
     //Defense method
     public abstract DefenseEntity attemptDefense(TargetingParams params);
 }

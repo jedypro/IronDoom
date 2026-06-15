@@ -16,7 +16,7 @@ public class GiftSpawner {
      * Generates a new Gift entity with a randomized drop location and reward type.
      * * @return A newly instantiated Gift object.
      */
-    public Gift spawnGift() {
+    public Gift spawnGift(boolean includeRepairType) {
         // 1. Assign a unique ID
         int currentId = giftIdCounter++;
 
@@ -25,11 +25,19 @@ public class GiftSpawner {
 
         // 3. Initialize the movement strategy (Parachute) for a controlled, swaying descent
         MovementStrategy parachute = new ParachuteStrategy();
-
+        if(includeRepairType) {
+            // 4. Determine the gift type with a 20% chance for a new battery, 50% for ammo refill, and 30% for repair
+            GiftType type = (random.nextDouble() < 0.1) ? GiftType.NEW_BATTERY : 
+                            (random.nextDouble() < 0.2) ? GiftType.AMMO_REFILL :
+                            (random.nextDouble() < 0.3) ? GiftType.ADD_SCORE : GiftType.BATTERY_REPAIR;
+            return new Gift(currentId, randomX, 0, parachute, type);
+        }
+        else {
         // 4. Determine the gift type (e.g., 10% chance for a new battery, 90% for ammo refill)
-        GiftType type = (random.nextDouble() < 0.3) ? GiftType.NEW_BATTERY : GiftType.AMMO_REFILL;
-        
-        // 5. Instantiate and return the payload (Y starts at 0 - top of the screen)
+        GiftType type = (random.nextDouble() < 0.4) ? GiftType.NEW_BATTERY : (random.nextDouble() < 0.6) ? GiftType.AMMO_REFILL : GiftType.ADD_SCORE;
         return new Gift(currentId, randomX, 0, parachute, type);
+        
+    }
+        
     }
 }
