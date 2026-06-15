@@ -14,16 +14,21 @@ import shared.ui_ports.TeamUiPort;
 
 public class TeamBackend {
 
+    private static final int WORLD_WIDTH = 1200;
+    private static final int EXIT_MARGIN = 350;
+
+    private static final int DEFAULT_SCORE = 300;
+
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<DefenseEntity> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
-    private final List<Gift> activeGifts = new ArrayList<>();
-
-    private GameState gameState = new GameState(300, 1, true);
+    private final List<Gift> activeGifts = new ArrayList<>(); //for endless mode
+    private final Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
+    private GameState gameState= new GameState(DEFAULT_SCORE, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
     private PopulationManager populationManager = new PopulationManager();
-    private GiftSpawner giftSpawner = new GiftSpawner(1200.0); 
+    private GiftSpawner giftSpawner = new GiftSpawner(WORLD_WIDTH); 
 
     private ExcelTable events;
     private String[][] rows;
@@ -55,6 +60,7 @@ public class TeamBackend {
      * (which happens at UI startup, but this backend is constructed at app
      * startup).
      */
+
     private TeamUiPort teamUiPort() {
         return TeamUiPort.getInstance();
     }
@@ -474,7 +480,6 @@ public class TeamBackend {
         gift.updatePosition(timeStep);
 }
     }
-    private Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
 
     private void checkCollisions(double timeStep) {
         Iterator<AbstractThreat> threatIterator = threats.iterator();
@@ -655,7 +660,7 @@ public class TeamBackend {
             }
         }
     }
-
+    
     private void checkBarrage() {
         if (threats.size() >= BARRAGE_THRESHOLD) {
             long currentTime = System.currentTimeMillis();
