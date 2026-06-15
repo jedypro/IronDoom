@@ -2008,8 +2008,16 @@ public class Ui {
     }
 
     private JPanel createModeSelectPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(UIConstants.COLOR_BACKGROUND);  
+        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (settingsBackgroundImage != null) {
+                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
+                }
+            }
+        };
+        panel.setOpaque(false);
         
         JLabel title = new JLabel("Select Mission Type");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));

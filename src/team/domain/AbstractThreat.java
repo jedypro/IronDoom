@@ -3,14 +3,14 @@ package team.domain;
 import base.IdentifiedObject;
 
 public abstract class AbstractThreat extends IdentifiedObject{
-    int x;
-    int y;
-    int vx;
-    int vy;
-    int length;
-    int height;
-    int threatLevel;
-    MovementStrategy movementStrategy;
+    private int x;
+    private int y;
+    private int vx;
+    private int vy;
+    private int length;
+    private int height;
+    private int threatLevel;
+    private MovementStrategy movementStrategy;
     // Constructor
     public AbstractThreat(int id, int x, int y, int vx, int vy, int length, int height, int threatLevel, MovementStrategy movementStrategy) {
         super(id);

@@ -14,16 +14,23 @@ import shared.ui_ports.TeamUiPort;
 
 public class TeamBackend {
 
+    private static final int WORLD_WIDTH = 1200;
+    private static final int EXIT_MARGIN = 350;
+
+    private static final int DEFAULT_SCORE = 300;
+
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<DefenseEntity> activeInterceptors = new ArrayList<>();
     private final List<Damageable> damageables = new ArrayList<>();
-    private final List<Gift> activeGifts = new ArrayList<>();
+    private final List<Gift> activeGifts = new ArrayList<>(); //for endless mode
+    private final Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
 
-    private GameState gameState = new GameState(300, 1, true);
+
+    private GameState gameState= new GameState(DEFAULT_SCORE, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
     private PopulationManager populationManager = new PopulationManager();
-    private GiftSpawner giftSpawner = new GiftSpawner(1200.0); 
+    private GiftSpawner giftSpawner = new GiftSpawner(WORLD_WIDTH); 
 
     private ExcelTable events;
     private String[][] rows;
@@ -55,12 +62,32 @@ public class TeamBackend {
      * (which happens at UI startup, but this backend is constructed at app
      * startup).
      */
+    //getters
+    public java.util.List<AbstractThreat> getThreats() {
+        return Collections.unmodifiableList(threats);
+    }
+
+    public java.util.List<Damageable> getDamageables() {
+        return Collections.unmodifiableList(damageables);
+    }
+
+    public java.util.List<DefenseEntity> getInterceptors() {
+        return Collections.unmodifiableList(activeInterceptors);
+    }
+
+    public java.util.List<Gift> getGifts() {
+        return Collections.unmodifiableList(activeGifts);
+    }
+    public GameState getGameState() {
+        return gameState;
+    }
     private TeamUiPort teamUiPort() {
         return TeamUiPort.getInstance();
     }
+
+    //registering threats and assets
     private void threatsRegister(){
         this.spawner = new ThreatSpawner(this.gameState);
-    
         // רישום: טיל בליסטי
         spawner.registerThreatType((id) -> {
             int level = this.gameState.getLevel();
@@ -74,7 +101,7 @@ public class TeamBackend {
 
             int length = ThreadLocalRandom.current().nextInt(10, 15);
             int height = ThreadLocalRandom.current().nextInt(5, 9);
-    // הגרלה: 50% סיכוי למסלול גלי, 50% למסלול בליסטי רגיל - אך ורק משלב 3 ומעלה
+            // הגרלה: 50% סיכוי למסלול גלי, 50% למסלול בליסטי רגיל - אך ורק משלב 3 ומעלה
             MovementStrategy strategy;
             if (level >= 3 && ThreadLocalRandom.current().nextInt(7) == 0) {
                 strategy = new WavyMovementStrategy();
@@ -156,7 +183,7 @@ public class TeamBackend {
         }
     }
 
-    //events
+    //register events
     private void eventsRegister() {
         // --- Good Events ---
         goodActions.add(() -> {
@@ -224,6 +251,20 @@ public class TeamBackend {
         publishScene();
     }
 
+    private void initializeWorld() {
+        threatsRegister();
+        assetsRegister();
+        eventsRegister();
+
+        int level = gameState.getLevel();
+        int groundY = gameState.getGroundY();
+
+        // קריאה לשתי פונקציות הנפרדות
+        damageables.addAll(assetSpawner.spawnDefenseSystems(level, groundY));
+        damageables.addAll(assetSpawner.spawnRegularAssets(level, groundY));
+    }
+
+    //reset
     public void resetGame() {
         threats.clear();
         populationManager.reset();
@@ -231,7 +272,7 @@ public class TeamBackend {
         damageables.clear();
         // Preserve the current difficulty level when resetting the game.
         int currentLevel = (this.gameState != null) ? this.gameState.getLevel() : 1;
-        gameState = new GameState(300, currentLevel, true);
+        gameState = new GameState(DEFAULT_SCORE, currentLevel, true);
         resetLevelTimer();
         resetBarrageTimer();
         initializeWorld();
@@ -270,89 +311,13 @@ public class TeamBackend {
         levelCompleted = false;
     }
 
+    //barrage system
     private void resetBarrageTimer() {
         timeSinceLastBarrage = 0;
         timeSinceWarning = 0;
         barrageWarningScheduled = false;
         pendingBarrageSize = 0;
     }
-
-    private void initializeWorld() {
-        threatsRegister();
-        assetsRegister();
-        eventsRegister();
-
-        int level = gameState.getLevel();
-        int groundY = gameState.getGroundY();
-
-        // קריאה לשתי פונקציות הנפרדות
-        damageables.addAll(assetSpawner.spawnDefenseSystems(level, groundY));
-        damageables.addAll(assetSpawner.spawnRegularAssets(level, groundY));
-    }
-
-    public java.util.List<AbstractThreat> getThreats() {
-        return Collections.unmodifiableList(threats);
-    }
-
-    public java.util.List<Damageable> getDamageables() {
-        return Collections.unmodifiableList(damageables);
-    }
-
-    public java.util.List<DefenseEntity> getInterceptors() {
-        return Collections.unmodifiableList(activeInterceptors);
-    }
-
-    public java.util.List<Gift> getGifts() {
-        return Collections.unmodifiableList(activeGifts);
-    }
-    public GameState getGameState() {
-        return gameState;
-    }
-
-    // UI input events call these via router
-    public void doStep(double timeStep) {
-        updateThreatPositions(timeStep);
-        updateInterceptorPositions(timeStep);
-        updateGiftPositions(timeStep);
-
-        populationManager.update(timeStep, gameState.getGroundY(), damageables);
-
-        // בדיקה האם הזמן המוקצב לשלב כבר חלף
-        double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
-        boolean isTimeUp = (levelElapsedTime >= levelDuration);
-
-        double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
-        if (Math.random() < eventProbabilityThisFrame) {
-            triggerRandomEvent();
-        }
-
-        // ייצור איומים וגלים חדשים יקרה אך ורק אם הזמן של השלב עדיין לא נגמר
-        if (!isTimeUp) {
-            AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
-            if (newThreat != null) {
-                threats.add(newThreat);
-            }
-            advanceBarrageTimers(timeStep);
-            checkBarrage();
-        }
-
-        advanceLevelTimer(timeStep);
-        
-        if (levelCompleted) {
-            return;
-        }
-        
-        checkCollisions(timeStep);
-
-        //  אם אף אמצעי הגנה לא מסוגל לירות יותר - המשחק נגמר מיד בהפסד
-        if (!canAnyDefenseSystemFire() || gameState.getScore() <= 0) {
-            gameState.setStatus(false);
-            App.getPeriodicLoop().setPaused(true); // עצירת הלולאה של המשחק
-        }
-
-        publishScene();
-    }
-
     private void advanceBarrageTimers(double timeStep) {
         if (gameState.getLevel() <= 1) {
             // Level 1 has no barrages.
@@ -397,9 +362,38 @@ public class TeamBackend {
                 activeGifts.add(newGift);
         }
     }
-
     private double barrageIntervalForLevel(int level) {
         return BARRAGE_INTERVAL_BASE_SECONDS / level;
+    }
+    private void checkBarrage() {
+        if (threats.size() >= BARRAGE_THRESHOLD) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastWarningTime > WARNING_COOLDOWN_MS) {
+                lastWarningTime = currentTime;
+                
+                // Determine warning message based on threat types
+                int missileCount = 0;
+                int droneCount = 0;
+                for (AbstractThreat threat : threats) {
+                    if (threat instanceof BallisticMissile) {
+                        missileCount++;
+                    } else if (threat instanceof UAV) {
+                        droneCount++;
+                    }
+                }
+                
+                String warningMsg = "⚠ INCOMING BARRAGE! ⚠ ";
+                if (missileCount > 0 && droneCount > 0) {
+                    warningMsg += "Missiles + Drones incoming!";
+                } else if (missileCount > 0) {
+                    warningMsg += "Missile barrage incoming!";
+                } else if (droneCount > 0) {
+                    warningMsg += "Drone swarm incoming!";
+                }
+                
+                teamUiPort().showWarning(warningMsg);
+            }
+        }
     }
 
     private void advanceLevelTimer(double timeStep) {
@@ -415,6 +409,8 @@ public class TeamBackend {
                 resetLevelTimer();
                 resetBarrageTimer();
                 threatsRegister();
+                Gift newGift = giftSpawner.spawnGift();
+                activeGifts.add(newGift);
                 
             
                 publishScene();
@@ -453,11 +449,6 @@ public class TeamBackend {
         while (interceptorIterator.hasNext()) {
             DefenseEntity interceptor = interceptorIterator.next();
             interceptor.updatePosition(timeStep);
-
-            // Only explode once the missile exits the visible screen with margin
-            // World width is 1200, so add buffer before exploding
-            final int WORLD_WIDTH = 1200;
-            final int EXIT_MARGIN = 350; // Buffer before missile fully disappears
             
             if (!interceptor.isActive() || 
                 interceptor.getY() < -EXIT_MARGIN || 
@@ -471,10 +462,9 @@ public class TeamBackend {
 
     private void updateGiftPositions(double timeStep) {
         for (Gift gift : activeGifts) {
-        gift.updatePosition(timeStep);
-}
+            gift.updatePosition(timeStep);
+        }
     }
-    private Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
 
     private void checkCollisions(double timeStep) {
         Iterator<AbstractThreat> threatIterator = threats.iterator();
@@ -656,45 +646,14 @@ public class TeamBackend {
         }
     }
 
-    private void checkBarrage() {
-        if (threats.size() >= BARRAGE_THRESHOLD) {
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastWarningTime > WARNING_COOLDOWN_MS) {
-                lastWarningTime = currentTime;
-                
-                // Determine warning message based on threat types
-                int missileCount = 0;
-                int droneCount = 0;
-                for (AbstractThreat threat : threats) {
-                    if (threat instanceof BallisticMissile) {
-                        missileCount++;
-                    } else if (threat instanceof UAV) {
-                        droneCount++;
-                    }
-                }
-                
-                String warningMsg = "⚠ INCOMING BARRAGE! ⚠ ";
-                if (missileCount > 0 && droneCount > 0) {
-                    warningMsg += "Missiles + Drones incoming!";
-                } else if (missileCount > 0) {
-                    warningMsg += "Missile barrage incoming!";
-                } else if (droneCount > 0) {
-                    warningMsg += "Drone swarm incoming!";
-                }
-                
-                teamUiPort().showWarning(warningMsg);
+    private InterceptorBattery findBatteryById(int id) {
+        for (Damageable system : damageables) {
+            if (system instanceof InterceptorBattery && ((InterceptorBattery) system).getId() == id) {
+                return (InterceptorBattery) system;
             }
         }
+        return null;
     }
-
-    private InterceptorBattery findBatteryById(int id) {
-    for (Damageable system : damageables) {
-        if (system instanceof InterceptorBattery && ((InterceptorBattery) system).getId() == id) {
-            return (InterceptorBattery) system;
-        }
-    }
-    return null;
-}
 
    private AbstractDefenseSystem findDefenseSystemById(int id) {
     for (Damageable system : damageables) {
@@ -802,5 +761,50 @@ public class TeamBackend {
         // Send to UI
         teamUiPort().showGameEvent(description, resultText, isGood);
     }
+
+    // UI input events call these via router
+    public void doStep(double timeStep) {
+        updateThreatPositions(timeStep);
+        updateInterceptorPositions(timeStep);
+        updateGiftPositions(timeStep);
+
+        populationManager.update(timeStep, gameState.getGroundY(), damageables);
+
+        // בדיקה האם הזמן המוקצב לשלב כבר חלף
+        double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
+        boolean isTimeUp = (levelElapsedTime >= levelDuration);
+
+        double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
+        if (Math.random() < eventProbabilityThisFrame) {
+            triggerRandomEvent();
+        }
+
+        // ייצור איומים וגלים חדשים יקרה אך ורק אם הזמן של השלב עדיין לא נגמר
+        if (!isTimeUp) {
+            AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
+            if (newThreat != null) {
+                threats.add(newThreat);
+            }
+            advanceBarrageTimers(timeStep);
+            checkBarrage();
+        }
+
+        advanceLevelTimer(timeStep);
+        
+        if (levelCompleted) {
+            return;
+        }
+        
+        checkCollisions(timeStep);
+
+        //  אם אף אמצעי הגנה לא מסוגל לירות יותר - המשחק נגמר מיד בהפסד
+        if (!canAnyDefenseSystemFire() || gameState.getScore() <= 0) {
+            gameState.setStatus(false);
+            App.getPeriodicLoop().setPaused(true); // עצירת הלולאה של המשחק
+        }
+
+        publishScene();
+    }
+
 
 }
