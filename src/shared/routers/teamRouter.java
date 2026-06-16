@@ -3,7 +3,7 @@ package shared.routers;
 import base.Params;
 import base.SubRouter;
 import my_base.App;
-import team.domain.TeamBackend;
+import team.domain.backend.TeamBackend;
 
 public class teamRouter implements SubRouter {
 

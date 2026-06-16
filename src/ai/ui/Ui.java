@@ -190,8 +190,12 @@ public class Ui {
         int newAngle = angleSlider.getValue();
         if (newAngle != this.currentSliderAngle) {
             this.currentSliderAngle = newAngle;
-            if (mainRouter != null && selectedBatteryId != -1) {
-                mainRouter.route("/team/updateAim", Params.of(selectedBatteryId, (double) currentSliderAngle));
+            if (mainRouter != null) {
+                for (Damageable d : damageables) {
+                    if (d instanceof AbstractDefenseSystem) {
+                        mainRouter.route("/team/updateAim", Params.of(((AbstractDefenseSystem) d).getId(), (double) currentSliderAngle));
+                    }
+                }
             }
             refresh(); 
         }
@@ -454,6 +458,60 @@ public class Ui {
             }
         });
 
+        // A - Toggle aim line
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed A"), "toggleAimLine");
+        actionMap.put("toggleAimLine", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gameCanvas != null) {
+                    gameCanvas.setShowAim(!gameCanvas.isShowAim());
+                }
+            }
+        });
+
+        // C - Fire from all active batteries
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed C"), "fireAll");
+        actionMap.put("fireAll", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int currentAngle = angleSlider.getValue();
+                for (Damageable d : damageables) {
+                    if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {
+                        AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+                        String defenseType = (ds instanceof LaserBattery) ? "LASER" : "MISSILE";
+                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), currentAngle, defenseType));
+                    }
+                }
+            }
+        });
+
+        // V - Triple fire from all active batteries
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed V"), "tripleFireAll");
+        actionMap.put("tripleFireAll", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int currentAngle = angleSlider.getValue();
+                int angle2 = Math.min(angleSlider.getMaximum(), currentAngle + 4);
+                int angle3 = Math.max(angleSlider.getMinimum(), currentAngle - 4);
+                
+                boolean fired = false;
+                for (Damageable d : damageables) {
+                    if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {
+                        AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+                        String defenseType = (ds instanceof LaserBattery) ? "LASER" : "MISSILE";
+                        
+                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), currentAngle, defenseType));
+                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), angle2, defenseType));
+                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), angle3, defenseType));
+                        fired = true;
+                    }
+                }
+                if (fired && gameCanvas != null) {
+                    gameCanvas.triggerScreenShake(400, 15); // רעד של 400 מילישניות בעוצמה 15
+                }
+            }
+        });
+
         frame.setVisible(true);
 
         gameCanvas.startAnimation();
@@ -533,47 +591,11 @@ public class Ui {
     public void showEvent(String description, boolean isGood, String result) {
         // This method is called on the Swing EDT.
         
-        // 1. Pause the game if it's currently running.
-        final boolean wasPausedBeforeEvent = this.paused;
-        if (!wasPausedBeforeEvent) {
-            paused = true;
-            if (mainRouter != null) {
-                mainRouter.route("/team/pause", Params.of());
-            }
-            if (gameCanvas != null) gameCanvas.pauseAnimation();
-            if (aimTimer != null) aimTimer.stop();
-            if (pauseButton != null) pauseButton.setText("Resume");
-            showStatus("Paused");
-        }
-
-        // 2. Create a custom panel for the dialog for better styling.
-        JPanel messagePanel = new JPanel(new BorderLayout(10, 10));
-        messagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        
-        // The description is in Hebrew. Using HTML for styling and alignment.
-        JLabel descriptionLabel = new JLabel("<html><div style='text-align: center; width: 300px;'>" + description + "</div></html>");
-        descriptionLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        descriptionLabel.setForeground(isGood ? new Color(34, 139, 34) : new Color(178, 34, 34));
-        messagePanel.add(descriptionLabel, BorderLayout.NORTH);
-
-        JLabel resultLabel = new JLabel("<html><div style='text-align: center; width: 300px;'><b>Effect:</b> " + result + "</div></html>");
-        resultLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        messagePanel.add(resultLabel, BorderLayout.CENTER);
-
-        String title = isGood ? "Good News!" : "Bad News!";
-        int messageType = isGood ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE;
-
-        // Show the modal dialog. This blocks until the user clicks "OK".
-        JOptionPane.showMessageDialog(frame, messagePanel, title, messageType);
-
-        // 3. Resume the game if it wasn't paused before the event.
-        if (!wasPausedBeforeEvent) {
-            paused = false;
-            if (mainRouter != null) mainRouter.route("/team/resume", Params.of());
-            if (gameCanvas != null) gameCanvas.resumeAnimation();
-            if (aimTimer != null) aimTimer.start();
-            if (pauseButton != null) pauseButton.setText("Pause");
-            showStatus("Running");
+        if (gameCanvas != null) {
+            Color color = isGood ? new Color(100, 255, 100) : new Color(255, 100, 100);
+            String fullText = description + " | " + result;
+            // הוספת טקסט למרכז המסך (מיקום 600, 200 בעולם המשחק) לזמן של 3 שניות
+            gameCanvas.addFloatingText(600, 200, fullText, color, 3000);
         }
     }
 
@@ -688,8 +710,9 @@ public class Ui {
         JLabel diffLabel = new JLabel("Difficulty Level:");
         diffLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
         diffLabel.setForeground(Color.WHITE);
+                //bottomControls.add(toggleAimBtn);
 
-        //bottomControls.add(toggleAimBtn);
+
         javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
             new javax.swing.SpinnerNumberModel(1, 1, 99, 1)
         );
@@ -702,6 +725,17 @@ public class Ui {
 
         ToggleSwitch soundToggle = new ToggleSwitch(this.soundEnabled);
         soundToggle.addActionListener(e -> this.soundEnabled = soundToggle.isSelected());
+
+        JLabel aimLabel = new JLabel("Aiming Line:");
+        aimLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
+        aimLabel.setForeground(Color.WHITE);
+
+        ToggleSwitch aimToggle = new ToggleSwitch(gameCanvas != null ? gameCanvas.isShowAim() : false);
+        aimToggle.addActionListener(e -> {
+            if (gameCanvas != null) {
+                gameCanvas.setShowAim(aimToggle.isSelected());
+            }
+        });
 
         JButton applyButton = createStyledButton("Apply", 16);
         applyButton.addActionListener(e -> {
@@ -743,6 +777,14 @@ public class Ui {
         panel.add(soundToggle, c);
 
         c.gridy = 5;
+        c.insets = new java.awt.Insets(0, 0, 10, 0);
+        panel.add(aimLabel, c);
+
+        c.gridy = 6;
+        c.insets = new java.awt.Insets(0, 0, 20, 0);
+        panel.add(aimToggle, c);
+
+        c.gridy = 7;
         c.insets = new java.awt.Insets(0, 0, 0, 0);
         panel.add(buttonPanel, c);
 
@@ -1082,24 +1124,39 @@ public class Ui {
         final String text;
         final Color color;
         final long createdAt;
+        final long duration;
 
         FloatingText(int x, int y, String text, Color color) {
+            this(x, y, text, color, 1500); // ברירת מחדל של 1.5 שניות
+        }
+
+        FloatingText(int x, int y, String text, Color color, long duration) {
             this.x = x;
             this.y = y;
             this.text = text;
             this.color = color;
             this.createdAt = System.currentTimeMillis();
+            this.duration = duration;
         }
 
         boolean isExpired() {
-            return System.currentTimeMillis() - createdAt > 1500; // הזמן שייקח לטקסט להעלם (1.5 שניות)
+            return System.currentTimeMillis() - createdAt > duration;
         }
     }
 
     private class GameCanvas extends JPanel implements ActionListener {
 
         // Variable to control aiming line visibility
-        private boolean showAim = true; 
+        private boolean showAim = false; 
+        
+        // Screen shake variables
+        private long screenShakeEndTime = 0;
+        private int currentShakeMagnitude = 0;
+
+        public void triggerScreenShake(int durationMs, int magnitude) {
+            this.screenShakeEndTime = System.currentTimeMillis() + durationMs;
+            this.currentShakeMagnitude = magnitude;
+        }
 
         // Getters and Setters
         public boolean isShowAim() {
@@ -1174,6 +1231,10 @@ public class Ui {
             floatingTexts.add(new FloatingText(x, y, text, color));
         }
 
+        void addFloatingText(int x, int y, String text, Color color, long duration) {
+            floatingTexts.add(new FloatingText(x, y, text, color, duration));
+        }
+
         @Override
         public void actionPerformed(ActionEvent e) {
             explosions.removeIf(Explosion::isExpired);
@@ -1196,6 +1257,11 @@ public class Ui {
             scale = Math.min(getWidth() / WORLD_WIDTH, getHeight() / WORLD_HEIGHT);
             offsetX = (int) Math.round((getWidth() - WORLD_WIDTH * scale) / 2);
             offsetY = (int) Math.round((getHeight() - WORLD_HEIGHT * scale) / 2);
+            
+            if (System.currentTimeMillis() < screenShakeEndTime) {
+                offsetX += (int) ((Math.random() * 2 - 1) * currentShakeMagnitude);
+                offsetY += (int) ((Math.random() * 2 - 1) * currentShakeMagnitude);
+            }
 
             boolean animationTick = (System.currentTimeMillis() / 100) % 2 == 0;
 
@@ -1993,7 +2059,7 @@ public class Ui {
             long now = System.currentTimeMillis();
             for (FloatingText ft : floatingTexts) {
                 long age = now - ft.createdAt;
-                int alpha = (int) Math.max(0, 255 - (age * 255L / 1500));
+            int alpha = (int) Math.max(0, 255 - (age * 255L / ft.duration));
                 // ה-Y עולה מעלה ככל שהזמן עובר
                 int floatOffset = (int) (age / 20.0); 
 

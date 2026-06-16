@@ -1,7 +1,7 @@
 package my_base;
 
 import db.ExcelDB;
-import team.domain.TeamBackend;
+import team.domain.backend.TeamBackend;
 
 /*
  * This class should hold the content of the system, i.e., all elements that are
