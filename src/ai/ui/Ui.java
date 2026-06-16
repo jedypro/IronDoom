@@ -320,7 +320,7 @@ public class Ui {
                 int val = angleSlider.getValue();
                 int currentDelta = AIM_DELTA;
                 if ("LASER".equals(getSelectedDefenseType())) {
-                    currentDelta = 1; // שינוי זווית עדין יותר ללייזר
+                    currentDelta = 2; // שינוי זווית איטי ומדויק יותר ללייזר (2 מעלות)
                 }
                 int delta = aimDirection * currentDelta;
                 int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
@@ -1841,9 +1841,9 @@ public class Ui {
                     long time = System.currentTimeMillis();
                     double pulse = 1.0 + 0.2 * Math.sin(time / 40.0); // קצב הפעימה של הלייזר
 
-                    int coreWidth = Math.max(1, (int)(toScreenLen(4) * pulse));
-                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(12) * pulse));
-                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(26) * pulse));
+                    int coreWidth = Math.max(1, (int)(toScreenLen(6) * pulse));
+                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(16) * pulse));
+                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(34) * pulse));
 
                     // שכבה 1: הילה חיצונית (כחול כהה שקוף)
                     g2.setColor(new Color(0, 100, 255, 60));
@@ -1984,7 +1984,7 @@ public class Ui {
                 g2d.drawArc(gx - gw / 2, gy - gh - gh / 2, gw * 2, gh, 0, 180);
                 
                 // קביעת צבע התיבה לפי סוג המתנה
-                if (gift.getGiftType() == "NEW_BATTERY" || gift.getGiftType() == "REPAIR_BATTERY") {
+                if (gift.getGiftType() == GiftType.NEW_BATTERY || gift.getGiftType() == GiftType.BATTERY_REPAIR) {
                     g2d.setColor(UIConstants.COLOR_SELECTED_BATTERY); // כחול לסוללה
                 } else {
                     g2d.setColor(UIConstants.COLOR_BATTERY); // ירוק לתחמושת
