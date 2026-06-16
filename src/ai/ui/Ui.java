@@ -690,7 +690,6 @@ public class Ui {
         diffLabel.setForeground(Color.WHITE);
 
         //bottomControls.add(toggleAimBtn);
-        
         javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
             new javax.swing.SpinnerNumberModel(1, 1, 99, 1)
         );
@@ -1100,7 +1099,7 @@ public class Ui {
     private class GameCanvas extends JPanel implements ActionListener {
 
         // Variable to control aiming line visibility
-        private boolean showAim = false; 
+        private boolean showAim = true; 
 
         // Getters and Setters
         public boolean isShowAim() {
@@ -2109,11 +2108,7 @@ public class Ui {
                 }
             }
         };
-<<<<<<< HEAD
-        panel.setOpaque(false);
-=======
         panel.setOpaque(false);  
->>>>>>> jamdni-fixes
         
         JLabel title = new JLabel("Select Mission Type");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
