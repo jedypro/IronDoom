@@ -333,6 +333,7 @@ public class TeamBackend {
 
         double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
         if (Math.random() < eventProbabilityThisFrame) {
+            System.out.println("triggering random event...");
             triggerRandomEvent();
         }
 

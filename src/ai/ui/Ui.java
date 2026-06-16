@@ -217,6 +217,26 @@ public class Ui {
         fireButton.setBackground(Color.RED);
         fireButton.setForeground(Color.WHITE);
 
+         // הפעלה וביטול של כוונת
+        JButton toggleAimBtn = createStyledButton("Show Aim", 18);
+
+        // 2. Add the action listener for the toggle logic
+        toggleAimBtn.addActionListener(e -> {
+            if (gameCanvas != null) {
+                // Toggle the boolean value
+                boolean nextState = !gameCanvas.isShowAim();
+                gameCanvas.setShowAim(nextState);
+                
+                // Update the button's text based on the new state
+                if (nextState) {
+                    toggleAimBtn.setText("Hide Aim");
+                } else {
+                    toggleAimBtn.setText("Show Aim");
+                }
+            }
+        });
+
+
         JButton homeButton = new JButton("Home");
         homeButton.addActionListener(e -> showIntroScreen());
         JButton settingsButton = new JButton("Settings");
@@ -313,6 +333,7 @@ public class Ui {
             mainRouter.route("/team/launchDefense", params);
         });
 
+       
         // === Global Key Bindings (continuous arrows & Z) ===
         // Initialize continuous aim timer (uses angleSlider)
         aimTimer = new javax.swing.Timer(AIM_INTERVAL_MS, ev -> {
@@ -668,6 +689,8 @@ public class Ui {
         diffLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
         diffLabel.setForeground(Color.WHITE);
 
+        //bottomControls.add(toggleAimBtn);
+        
         javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
             new javax.swing.SpinnerNumberModel(1, 1, 99, 1)
         );
@@ -1075,6 +1098,20 @@ public class Ui {
     }
 
     private class GameCanvas extends JPanel implements ActionListener {
+
+        // Variable to control aiming line visibility
+        private boolean showAim = false; 
+
+        // Getters and Setters
+        public boolean isShowAim() {
+            return showAim;
+        }
+
+        public void setShowAim(boolean showAim) {
+            this.showAim = showAim;
+            this.repaint(); // Force a redraw immediately when the button is clicked
+        }
+
         private final List<Explosion> explosions = new ArrayList<>();
         private final List<FloatingText> floatingTexts = new ArrayList<>();
         private final Timer repaintTimer = new Timer(33, this);
@@ -1183,6 +1220,9 @@ public class Ui {
             drawThreats(g2d, animationTick);
             drawGifts(g2d);
             drawInterceptors(g2d, animationTick);
+            if (showAim) {
+                drawAimingLine(g2d);
+            }
             drawExplosions(g2d);
             drawFloatingTexts(g2d);
             g2d.dispose();
@@ -1703,6 +1743,7 @@ public class Ui {
         }
 
 
+     
         private void drawThreats(Graphics2D g, boolean isTick) {
             Color uavBodyColor, uavCockpitColor, missileBodyColor;
 
@@ -2000,6 +2041,57 @@ public class Ui {
             }
 }
 
+    private void drawAimingLine(Graphics2D g2d) {
+    // אם לא נבחרה סוללה (נניח ש 1- מסמל שאין בחירה), יוצאים מהפונקציה
+    if (selectedBatteryId == -1) {
+        return;
+    }
+
+    // 1. מציאת הסוללה הנבחרת מתוך רשימת הנזקים (Damageables)
+    Damageable selectedBattery = null;
+    if (damageables != null) {
+        for (Damageable asset : damageables) {
+            if (asset.getId() == selectedBatteryId) {
+                selectedBattery = asset;
+                break;
+            }
+        }
+    }
+
+    // 2. אם מצאנו את הסוללה, נצייר את הקו
+    if (selectedBattery != null) {
+        // שמירת המכחול המקורי
+        java.awt.Stroke originalStroke = g2d.getStroke();
+        
+        // יצירת קו מקווקו
+        float[] dashPattern = { 10.0f, 10.0f };
+        g2d.setStroke(new java.awt.BasicStroke(
+            2.0f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 10.0f, dashPattern, 0.0f
+        ));
+        
+        g2d.setColor(new java.awt.Color(255, 255, 255, 150)); // לבן חצי-שקוף (או כל צבע שתרצה)
+
+        // נקודת ההתחלה: מרכז הגג של הסוללה
+        int startX = toScreenX(selectedBattery.getX()) + toScreenLen(5 / 2);
+        int startY = toScreenY(selectedBattery.getY());
+
+        // 3. חישוב טריגונומטרי של נקודת הסיום
+        int lineLength = 350; // אורך הקו הויזואלי בפיקסלים
+        
+        // ג'אווה דורשת להמיר את הזווית ממעלות לרדיאנים
+        double angleInRadians = Math.toRadians(180-currentSliderAngle);
+
+       
+        int endX = startX + (int) (lineLength * Math.cos(angleInRadians));
+        int endY = startY - (int) (lineLength * Math.sin(angleInRadians));
+
+        // ציור הקו
+        g2d.drawLine(startX, startY, endX, endY);
+        
+        // החזרת המכחול למצב הרגיל
+        g2d.setStroke(originalStroke);
+    }
+}
 
         private void drawMessage(Graphics g, String message) {
             g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);

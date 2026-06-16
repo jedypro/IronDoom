@@ -8,7 +8,7 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
         super(id, x, y);
         this.missilesAvailable = inventory;
     }
-
+    
     //method overloading, for default ammo
     public InterceptorBattery(int id, int x, int y) {
         super(id, x, y);
@@ -75,5 +75,6 @@ public void repair() {
     this.isActive = true; // Reactivate the battery
     this.missilesAvailable = missilesAvailable > 60 ? missilesAvailable  : 60; 
 }
+
 }
 

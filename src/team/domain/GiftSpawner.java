@@ -36,7 +36,7 @@ public class GiftSpawner {
         // 4. Determine the gift type (e.g., 10% chance for a new battery, 90% for ammo refill)
         GiftType type = (random.nextDouble() < 0.4) ? GiftType.NEW_BATTERY : (random.nextDouble() < 0.6) ? GiftType.AMMO_REFILL : GiftType.ADD_SCORE;
         return new Gift(currentId, randomX, 0, parachute, type);
-        
+    
     }
         
     }

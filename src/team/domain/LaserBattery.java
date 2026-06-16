@@ -70,4 +70,6 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
         this.isActive = true; // Reactivate the battery
         this.laserChargesAvailable = laserChargesAvailable + 30; // Repair adds 30 laser charges, can be adjusted as needed
     }
+  
+
 }
