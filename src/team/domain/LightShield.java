@@ -107,4 +107,27 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
 
         return distance < collisionThreshold;
     }
+
+    public boolean intersects(Gift gift) {
+        double p1x = x; double p1y = y; // התחלת הלייזר
+        double p2x = getEndX(); double p2y = getEndY(); // סוף הלייזר
+        double cx = gift.getX() + gift.getWidth() / 2.0; // מרכז המתנה X
+        double cy = gift.getY() + gift.getHeight() / 2.0; // מרכז המתנה Y
+        double giftRadius = Math.max(gift.getWidth(), gift.getHeight()) / 2.0;
+        double collisionThreshold = giftRadius + 5; // תוספת ריווח קטנה
+
+        double L2 = (p2x - p1x) * (p2x - p1x) + (p2y - p1y) * (p2y - p1y);
+        if (L2 == 0.0) {
+            return Math.sqrt((cx - p1x) * (cx - p1x) + (cy - p1y) * (cy - p1y)) < collisionThreshold;
+        }
+
+        double t = ((cx - p1x) * (p2x - p1x) + (cy - p1y) * (p2y - p1y)) / L2;
+        t = Math.max(0, Math.min(1, t));
+
+        double closestX = p1x + t * (p2x - p1x);
+        double closestY = p1y + t * (p2y - p1y);
+
+        double distance = Math.sqrt((cx - closestX) * (cx - closestX) + (cy - closestY) * (cy - closestY));
+        return distance < collisionThreshold;
+    }
 }

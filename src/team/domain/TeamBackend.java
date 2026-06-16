@@ -24,8 +24,11 @@ public class TeamBackend {
     private final List<Damageable> damageables = new ArrayList<>();
     private final List<Gift> activeGifts = new ArrayList<>(); //for endless mode
     private final Map<Integer, Double> threatLaserContactTime = new java.util.HashMap<>();
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> jamdni-fixes
     private GameState gameState= new GameState(DEFAULT_SCORE, 1, true);
     private ThreatSpawner spawner;
     private AssetSpawner assetSpawner;
@@ -62,6 +65,7 @@ public class TeamBackend {
      * (which happens at UI startup, but this backend is constructed at app
      * startup).
      */
+<<<<<<< HEAD
     //getters
     public java.util.List<AbstractThreat> getThreats() {
         return Collections.unmodifiableList(threats);
@@ -81,6 +85,9 @@ public class TeamBackend {
     public GameState getGameState() {
         return gameState;
     }
+=======
+
+>>>>>>> jamdni-fixes
     private TeamUiPort teamUiPort() {
         return TeamUiPort.getInstance();
     }
@@ -185,6 +192,9 @@ public class TeamBackend {
 
     //register events
     private void eventsRegister() {
+        goodActions.clear();
+        badActions.clear();
+
         // --- Good Events ---
         goodActions.add(() -> {
             for (Damageable d : damageables) {
@@ -318,6 +328,91 @@ public class TeamBackend {
         barrageWarningScheduled = false;
         pendingBarrageSize = 0;
     }
+<<<<<<< HEAD
+=======
+
+    private void initializeWorld() {
+        threatsRegister();
+        assetsRegister();
+        eventsRegister();
+
+        int level = gameState.getLevel();
+        int groundY = gameState.getGroundY();
+
+        // קריאה לשתי פונקציות הנפרדות
+        damageables.addAll(assetSpawner.spawnDefenseSystems(level, groundY));
+        damageables.addAll(assetSpawner.spawnRegularAssets(level, groundY));
+    }
+
+    public java.util.List<AbstractThreat> getThreats() {
+        return Collections.unmodifiableList(threats);
+    }
+
+    public java.util.List<Damageable> getDamageables() {
+        return Collections.unmodifiableList(damageables);
+    }
+
+    public java.util.List<DefenseEntity> getInterceptors() {
+        return Collections.unmodifiableList(activeInterceptors);
+    }
+
+    public java.util.List<Gift> getGifts() {
+        return Collections.unmodifiableList(activeGifts);
+    }
+    public GameState getGameState() {
+        return gameState;
+    }
+
+    // UI input events call these via router
+    public void doStep(double timeStep) {
+        updateThreatPositions(timeStep);
+        updateInterceptorPositions(timeStep);
+        
+        updateGiftPositions(timeStep);
+
+        populationManager.update(timeStep, gameState.getGroundY(), damageables);
+
+        // בדיקה האם הזמן המוקצב לשלב כבר חלף
+        double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
+        boolean isTimeUp = (levelElapsedTime >= levelDuration);
+
+        double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
+        if (Math.random() < eventProbabilityThisFrame) {
+            System.out.println("triggering random event...");
+            triggerRandomEvent();
+        }
+
+        // ייצור איומים וגלים חדשים יקרה אך ורק אם הזמן של השלב עדיין לא נגמר
+        if (!isTimeUp) {
+            AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
+            if (newThreat != null) {
+                threats.add(newThreat);
+            }
+            advanceBarrageTimers(timeStep);
+            checkBarrage();
+        }
+
+        advanceLevelTimer(timeStep);
+        
+        if (levelCompleted) {
+            return;
+        }
+        
+        checkCollisions(timeStep);
+
+        //  אם אף אמצעי הגנה לא מסוגל לירות יותר - המשחק נגמר מיד בהפסד
+        if (!canAnyDefenseSystemFire() || gameState.getScore() <= 0) {
+            if (gameState.isStatus()) {
+                System.out.println("[LOG] Game Over! Out of ammo or score reached 0. Final score: " + gameState.getScore());
+            }
+            gameState.setStatus(false);
+            App.getPeriodicLoop().setPaused(true); // עצירת הלולאה של המשחק
+        }
+
+        publishScene();
+    }
+
+>>>>>>> jamdni-fixes
     private void advanceBarrageTimers(double timeStep) {
         if (gameState.getLevel() <= 1) {
             // Level 1 has no barrages.
@@ -331,6 +426,7 @@ public class TeamBackend {
                 timeSinceWarning = 0;
                 barrageWarningScheduled = false;
                 timeSinceLastBarrage = 0;
+                System.out.println("[LOG] Executing Barrage of " + pendingBarrageSize + " threats.");
                 teamUiPort().showWarning("Barrage incoming now: " + pendingBarrageSize + " threats!");
                 teamUiPort().playWarningSound();
                 for (int i = 0; i < pendingBarrageSize; i++) {
@@ -405,6 +501,7 @@ public class TeamBackend {
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * gameState.getLevel());
         if (levelElapsedTime >= levelDuration&& threats.isEmpty()) {
             if(gameState.isEndlessMode()) {
+                System.out.println("[LOG] Endless Mode: Advancing to Level " + (gameState.getLevel() + 1));
                 gameState.advanceLevel();
                 resetLevelTimer();
                 resetBarrageTimer();
@@ -415,6 +512,7 @@ public class TeamBackend {
             
                 publishScene();
             } else {
+            System.out.println("[LOG] Level " + gameState.getLevel() + " Complete!");
             levelCompleted = true;
             teamUiPort().showLevelComplete("Level " + gameState.getLevel() + " complete!");
             teamUiPort().playLevelCompleteSound();
@@ -461,8 +559,19 @@ public class TeamBackend {
     }
 
     private void updateGiftPositions(double timeStep) {
+<<<<<<< HEAD
         for (Gift gift : activeGifts) {
             gift.updatePosition(timeStep);
+=======
+        Iterator<Gift> giftIterator = activeGifts.iterator();
+        while (giftIterator.hasNext()) {
+            Gift gift = giftIterator.next();
+            gift.updatePosition(timeStep);
+
+            if (gift.getY() + gift.getHeight() >= gameState.getGroundY()) {
+                giftIterator.remove();
+            }
+>>>>>>> jamdni-fixes
         }
     }
 
@@ -474,6 +583,8 @@ public class TeamBackend {
 
             for (Damageable damageable : damageables) {
                 if (damageable.checkHit(threat.getX(), threat.getY())) {
+                    String targetName = (damageable instanceof GroundAsset) ? ((GroundAsset) damageable).getName() : "Defense System";
+                    System.out.println("[LOG] Threat " + threat.getId() + " hit " + targetName + "!");
                     damageable.tookHit();
                     if (damageable instanceof GroundAsset) {
                         populationManager.notifyBuildingHit((GroundAsset) damageable);
@@ -507,7 +618,8 @@ public class TeamBackend {
                         double contactTime = threatLaserContactTime.getOrDefault(threat.getId(), 0.0) + timeStep;
                         threatLaserContactTime.put(threat.getId(), contactTime);
                         
-                        if (contactTime >= 0.1) {
+                        if (contactTime >= 0.05) { // זמן מגע קצר יותר הופך את הלייזר לחזק ומהיר יותר
+                            System.out.println("[LOG] Threat " + threat.getId() + " destroyed by Laser.");
                             gameState.updateScore(10); // Score for hitting a threat with laser
                             threatIterator.remove();
                             teamUiPort().updateScore(gameState.getScore());
@@ -534,6 +646,7 @@ public class TeamBackend {
                 double distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < 50) {
+                    System.out.println("[LOG] Threat " + threat.getId() + " intercepted by Missile.");
                     gameState.updateScore(10);
                     interceptor.explode();
                     interceptorIterator.remove();
@@ -573,83 +686,128 @@ public class TeamBackend {
                     continue;
                 }
 
-                // חישוב מרחק בסיסי
-                double dx = gift.getX() - interceptor.getX();
-                double dy = gift.getY() - interceptor.getY();
-                double distance = Math.sqrt(dx * dx + dy * dy);
+                boolean isHit = false;
+                if (interceptor instanceof LightShield) {
+                    isHit = ((LightShield) interceptor).intersects(gift);
+                } else {
+                    double dx = gift.getX() - interceptor.getX();
+                    double dy = gift.getY() - interceptor.getY();
+                    isHit = Math.sqrt(dx * dx + dy * dy) < 50;
+                }
 
-                // אם המיירט פגע במתנה (רדיוס 50 פיקסלים)
-                if (distance < 50) {
+                if (isHit) {
+                    System.out.println("[LOG] Gift collected! Type: " + gift.getGiftType());
                     
-                    // 1. זיהוי סוג המתנה וחלוקת הפרס
-                    if (gift.getGiftType() == "NEW_BATTERY") {
-
+    
+                // 1. זיהוי סוג המתנה וחלוקת הפרס
+                switch (gift.getGiftType()) {
+                    case NEW_BATTERY:
                         List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
                         damageables.add(newDefense.get(0));
                         teamUiPort().showGameEvent("Reinforcements!", "New Battery Deployed", true);
-                    } 
-                    else if (gift.getGiftType() == "AMMO_REFILL") {
-                        // אם מה שפגע במתנה הוא טיל (ולא מגן לייזר), ניתן תחמושת לסוללה הספציפית שירתה אותו
-                        if (interceptor instanceof InterceptorMissile) {
-                            int shooterId = ((InterceptorMissile) interceptor).getSourceBatteryId();
-                            InterceptorBattery shooterBattery = findBatteryById(shooterId);
-                            
-                            if (shooterBattery != null) {
-                                 Random random = new Random();
-                                int numMissiles=  20 + random.nextInt(9) * 5;
-                                shooterBattery.setMissilesAvailable(shooterBattery.getMissilesAvailable() + numMissiles);
-                                teamUiPort().showGameEvent("Ammo Secured!", "+" + numMissiles + " Missiles", true);
-                            }
-                        }
-                    }
-                    else if (gift.getGiftType() == "BATTERY_REPAIR") {
-                        for (Damageable d : damageables) {
-                            if (d instanceof AbstractDefenseSystem && !((AbstractDefenseSystem) d).isActive()) {
-                                ((AbstractDefenseSystem) d).repair();
+                        break; // חובה לשים break בסוף כל case בגרסאות ישנות
+
+                    case AMMO_REFILL:
+                        int sourceId = interceptor.getSourceBatteryId();
+                        AbstractDefenseSystem shooterSystem = findDefenseSystemById(sourceId);
                         
-                                teamUiPort().showGameEvent("Reinforcements!", "Battery repaired", true);
-                                break; // מתקן רק מערכת אחת פגועה, אז יוצאים מהלולאה אחרי שמצאנו אחת
-                            }
-                            
+                        if (shooterSystem instanceof InterceptorBattery) {
+                            InterceptorBattery b = (InterceptorBattery) shooterSystem;
+                            Random random = new Random();
+                            int numMissiles = 20 + random.nextInt(9) * 5;
+                            b.setMissilesAvailable(b.getMissilesAvailable() + numMissiles);
+                            teamUiPort().showGameEvent("Ammo Secured!", "+" + numMissiles + " Missiles", true);
+                        } else if (shooterSystem instanceof LaserBattery) {
+                            LaserBattery b = (LaserBattery) shooterSystem;
+                            Random random = new Random();
+                            int numCharges = 15 + random.nextInt(4) * 5; // מוסיף 15 עד 30 מטענים
+                            b.setLaserChargesAvailable(b.getLaserChargesAvailable() + numCharges);
+                            teamUiPort().showGameEvent("Ammo Secured!", "+" + numCharges + " Laser Charges", true);
                         }
-                    }
-                    else if (gift.getGiftType() == "ADD_SCORE") {
+                        break;
+
+                    case BATTERY_REPAIR:
+                        for (Damageable d : damageables) {
+                            if (d instanceof AbstractDefenseSystem) {
+                                AbstractDefenseSystem defense = (AbstractDefenseSystem) d;
+                                if (!defense.isActive()) {
+                                    defense.repair();
+                                    teamUiPort().showGameEvent("Reinforcements!", "Battery repaired", true);
+                                    break; // מתקן רק מערכת אחת פגועה
+                                }
+                            }
+                        }
+                        break;
+
+                    case ADD_SCORE:
                         Random random = new Random();
-                        int score = random.nextInt(2, 4) * 100;
+                        int score = (random.nextInt(2) + 2) * 100;
                         gameState.updateScore(score);
                         teamUiPort().updateScore(gameState.getScore());
-                        teamUiPort().showGameEvent("Reinforcements!", score +" points added", true);
-                    }
-                    
-
-                    // 2. הפעלת אפקטים ויזואליים וניקוד
-                    gameState.updateScore(25); // קצת ניקוד בונוס על עצם האיסוף
-                    teamUiPort().updateScore(gameState.getScore());
-                    teamUiPort().triggerExplosion(
-                        (int) ((gift.getX() + interceptor.getX()) / 2),
-                        (int) ((gift.getY() + interceptor.getY()) / 2)
-                    );
-                    teamUiPort().playInterceptSound();
-
-                    // 3. מחיקת האובייקטים מהמסך (כדי לא לאסוף את אותה מתנה פעמיים)
-                    if (interceptor instanceof InterceptorMissile) {
-                        interceptor.explode();
-                        interceptorIterator.remove(); // הטיל מתפוצץ על המתנה ונעלם
-                    }
-                    // (אם זה לייזר שפגע במתנה, הוא לא יימחק וימשיך להאיר לפי הזמן שנשאר לו)
-
-                    giftIterator.remove(); // מוחקים את המתנה עצמה
-                    giftCollected = true;
-                    break; // עוצרים את בדיקת המיירטים למתנה הזו ועוברים למתנה הבאה במסך
+                        teamUiPort().showGameEvent("Reinforcements!", score + " points added", true);
+                        break;
                 }
+
+                // 2. הפעלת אפקטים ויזואליים וניקוד
+                gameState.updateScore(25); // קצת ניקוד בונוס על עצם האיסוף
+                teamUiPort().updateScore(gameState.getScore());
+                teamUiPort().triggerExplosion(
+                    (int) ((gift.getX() + interceptor.getX()) / 2),
+                    (int) ((gift.getY() + interceptor.getY()) / 2)
+                );
+                teamUiPort().playInterceptSound();
+
+                // 3. מחיקת האובייקטים מהמסך
+                if (interceptor instanceof InterceptorMissile) {
+                    interceptor.explode();
+                    interceptorIterator.remove(); // הטיל מתפוצץ על המתנה ונעלם
+                }
+
+                giftIterator.remove(); // מוחקים את המתנה עצמה
+                giftCollected = true;
+                break; // עוצרים את בדיקת המיירטים למתנה הזו ועוברים למתנה הבאה במסך
             }
         }
     }
+               
+    
 
+<<<<<<< HEAD
     private InterceptorBattery findBatteryById(int id) {
         for (Damageable system : damageables) {
             if (system instanceof InterceptorBattery && ((InterceptorBattery) system).getId() == id) {
                 return (InterceptorBattery) system;
+=======
+    }
+    
+    private void checkBarrage() {
+        if (threats.size() >= BARRAGE_THRESHOLD) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastWarningTime > WARNING_COOLDOWN_MS) {
+                lastWarningTime = currentTime;
+                
+                // Determine warning message based on threat types
+                int missileCount = 0;
+                int droneCount = 0;
+                for (AbstractThreat threat : threats) {
+                    if (threat instanceof BallisticMissile) {
+                        missileCount++;
+                    } else if (threat instanceof UAV) {
+                        droneCount++;
+                    }
+                }
+                
+                String warningMsg = "⚠ INCOMING BARRAGE! ⚠ ";
+                if (missileCount > 0 && droneCount > 0) {
+                    warningMsg += "Missiles + Drones incoming!";
+                } else if (missileCount > 0) {
+                    warningMsg += "Missile barrage incoming!";
+                } else if (droneCount > 0) {
+                    warningMsg += "Drone swarm incoming!";
+                }
+                
+                teamUiPort().showWarning(warningMsg);
+>>>>>>> jamdni-fixes
             }
         }
         return null;
@@ -759,6 +917,7 @@ public class TeamBackend {
         }
 
         // Send to UI
+        System.out.println("[LOG] Random Event Triggered: " + description + " | Result: " + resultText);
         teamUiPort().showGameEvent(description, resultText, isGood);
     }
 
