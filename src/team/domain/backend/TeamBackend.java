@@ -140,7 +140,10 @@ public class TeamBackend {
         populationManager.update(timeStep, gameState.getGroundY(), damageables);
 
         // 2. הפעלת אירועים אקראיים (אם הוגרל)
-        eventSystem.maybeTrigger(timeStep, teamUiPort());
+        // במולטיפלייר אנחנו מבטלים אירועים אקראיים כדי שהתחרות תהיה הוגנת (1 נגד 1)
+        if (!attackerControlled) {
+            eventSystem.maybeTrigger(timeStep, teamUiPort());
+        }
 
         // 3. ייצור איומים וגלים (רק אם הזמן לא נגמר)
         if (!levelManager.isTimeUp(gameState.getLevel())) {
@@ -150,9 +153,9 @@ public class TeamBackend {
                 if (newThreat != null) {
                     threats.add(newThreat);
                 }
+                barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort());
+                barrageManager.checkBarrage(threats, teamUiPort());
             }
-            barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort());
-            barrageManager.checkBarrage(threats, teamUiPort());
         }
 
         // 4. התקדמות זמן השלב ובדיקת ניצחון

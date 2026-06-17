@@ -11,7 +11,7 @@ public class LobbyUi extends JPanel {
     private Map<String, String> nameToIpMap = new HashMap<>();
     private LanDiscoveryService discoveryService;
 
-    public LobbyUi(Runnable onHostAction, java.util.function.Consumer<String> onJoinAction, Runnable onBackAction) {
+    public LobbyUi(Runnable onStartAsHost, java.util.function.Consumer<String> onStartAsClient, Runnable onBackAction) {
         setLayout(new BorderLayout(10, 10));
         setOpaque(false); // הופך את הפאנל לשקוף כדי שיראו את תמונת הרקע של המשחק
 
@@ -38,26 +38,19 @@ public class LobbyUi extends JPanel {
                 Color.WHITE));
         add(scrollPane, BorderLayout.CENTER);
 
-        JPanel btnPanel = new JPanel(new GridLayout(1, 3, 10, 10));
+        JPanel btnPanel = new JPanel(new GridLayout(1, 2, 10, 10));
         btnPanel.setOpaque(false);
         
-        JButton btnHost = new JButton("Host Game (Defender)");
-        btnHost.setFont(btnHost.getFont().deriveFont(Font.BOLD, 14f));
-        btnHost.addActionListener(e -> {
-            discoveryService.stop();
-            onHostAction.run(); // מפעיל את הלוגיקה של המגן
-        });
-
-        JButton btnJoin = new JButton("Join Game (Attacker)");
-        btnJoin.setFont(btnJoin.getFont().deriveFont(Font.BOLD, 14f));
-        btnJoin.addActionListener(e -> {
+        JButton btnChallenge = new JButton("Challenge Player");
+        btnChallenge.setFont(btnChallenge.getFont().deriveFont(Font.BOLD, 14f));
+        btnChallenge.addActionListener(e -> {
             String selected = playerList.getSelectedValue();
             if (selected != null) {
                 String ip = nameToIpMap.get(selected);
-                discoveryService.stop();
-                onJoinAction.accept(ip); // מפעיל את הלוגיקה של התוקף ב-UI הראשי
+                discoveryService.sendChallenge(selected, ip);
+                JOptionPane.showMessageDialog(this, "Challenge sent to " + selected + ".\nWaiting for response...");
             } else {
-                JOptionPane.showMessageDialog(this, "Please select a player to join!");
+                JOptionPane.showMessageDialog(this, "Please select a player to challenge!");
             }
         });
 
@@ -68,8 +61,7 @@ public class LobbyUi extends JPanel {
             onBackAction.run();
         });
 
-        btnPanel.add(btnHost);
-        btnPanel.add(btnJoin);
+        btnPanel.add(btnChallenge);
         btnPanel.add(btnBack);
         add(btnPanel, BorderLayout.SOUTH);
 
@@ -81,13 +73,66 @@ public class LobbyUi extends JPanel {
             public void componentShown(java.awt.event.ComponentEvent e) {
                 listModel.clear();
                 nameToIpMap.clear();
-                discoveryService.start((name, ip) -> {
-                    SwingUtilities.invokeLater(() -> {
-                        if (!nameToIpMap.containsKey(name)) {
-                            nameToIpMap.put(name, ip);
-                            listModel.addElement(name);
-                        }
-                    });
+                discoveryService.start(new LanDiscoveryService.NetworkEventHandler() {
+                    @Override
+                    public void onPlayerFound(String name, String ip) {
+                        SwingUtilities.invokeLater(() -> {
+                            if (!nameToIpMap.containsKey(name)) {
+                                nameToIpMap.put(name, ip);
+                                listModel.addElement(name);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onChallengeReceived(String fromName, String fromIp) {
+                        SwingUtilities.invokeLater(() -> {
+                            int response = JOptionPane.showConfirmDialog(LobbyUi.this,
+                                    fromName + " is challenging you to a game!\nDo you accept?",
+                                    "Challenge Received", JOptionPane.YES_NO_OPTION);
+                            if (response == JOptionPane.YES_OPTION) {
+                                boolean iAmDefender = Math.random() > 0.5;
+                                if (iAmDefender) {
+                                    discoveryService.sendStartGame(fromName, fromIp, "ATTACKER");
+                                    discoveryService.stop();
+                                    onStartAsHost.run();
+                                } else {
+                                    discoveryService.sendStartGame(fromName, fromIp, "DEFENDER");
+                                }
+                            } else {
+                                discoveryService.sendDeclined(fromName, fromIp);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onChallengeDeclined(String fromName) {
+                        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(LobbyUi.this, fromName + " declined your challenge."));
+                    }
+
+                    @Override
+                    public void onStartGame(String myRole, String hostIp, String otherPlayerName) {
+                        SwingUtilities.invokeLater(() -> {
+                            if (myRole.equals("DEFENDER")) {
+                                JOptionPane.showMessageDialog(LobbyUi.this, "Roles decided!\nYou are the DEFENDER.\nStarting server...");
+                                discoveryService.sendServerReady(otherPlayerName, hostIp);
+                                discoveryService.stop();
+                                onStartAsHost.run();
+                            } else {
+                                JOptionPane.showMessageDialog(LobbyUi.this, "Roles decided!\nYou are the ATTACKER.\nConnecting...");
+                                discoveryService.stop();
+                                onStartAsClient.accept(hostIp);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onServerReady(String hostIp) {
+                        SwingUtilities.invokeLater(() -> {
+                            discoveryService.stop();
+                            onStartAsClient.accept(hostIp);
+                        });
+                    }
                 });
             }
 

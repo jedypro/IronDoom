@@ -69,6 +69,7 @@ public class teamRouter implements SubRouter {
                 
                 // 3. מאפסים את המשחק כדי להתחיל שלב נקי מול התוקף ברשת
                 backend.resetGame();
+                backend.getGameState().setMode(true); // הגדרת מצב אינסוף אוטומטית למולטיפלייר
                 return null;
             }
 

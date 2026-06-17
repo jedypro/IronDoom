@@ -62,11 +62,7 @@ public class PanelFactory {
 
         playBtn.addActionListener(e -> navigator.showModeSelect());
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_INTRO));
-        multiplayerBtn.addActionListener(e -> {
-            mainRouter.route("/team/initMultiplayer", Params.of());
-            multiplayerBtn.setEnabled(false);
-            multiplayerBtn.setText("MP Active");
-        });
+        multiplayerBtn.addActionListener(e -> navigator.showLobby());
 
         JPanel buttons = opaqueFlow(24, playBtn, settingsBtn, multiplayerBtn);
 

@@ -1,9 +1,12 @@
 package ai.ui;
 
+import ai.ui.Images.newFiles.AttackerUi;
+import ai.ui.Images.newFiles.LobbyUi;
 import base.Params;
 import shared.MainRouter;
 import shared.ui_ports.TeamUiPort;
 import team.domain.*;
+
 
 import javax.swing.*;
 import java.awt.*;
@@ -61,6 +64,7 @@ public class Ui {
     private JLabel  levelCompleteTitleLabel;
     private JButton multiplayerBtn;
     private JPanel  introPanel;
+    private AttackerUi attackerPanel;
     private Timer   warningTimer;
 
     // ── Battery hit tracking ──────────────────────────────────────────────────
@@ -168,6 +172,24 @@ public class Ui {
         introPanel               = panelFactory.createIntroPanel();
         multiplayerBtn           = panelFactory.getMultiplayerBtn();
         levelCompleteTitleLabel  = panelFactory.getLevelCompleteTitleLabel();
+
+        attackerPanel            = new AttackerUi();
+
+        LobbyUi lobbyPanel = new LobbyUi(
+                () -> { // onStartAsHost
+                    mainRouter.route("/team/initMultiplayer", Params.of());
+                    navigator.showGame();
+                },
+                (ip) -> { // onStartAsClient
+                    System.out.println("Connecting as attacker to IP: " + ip);
+                    navigator.showAttacker();
+                    attackerPanel.connect(ip);
+                },
+                () -> { // onBackAction
+                    navigator.showIntro();
+                }
+        );
+
         navigator.setDifficultySpinner(panelFactory.getDifficultySpinner());
 
         rootPanel.add(introPanel,                           UIConstants.CARD_INTRO);
@@ -176,6 +198,8 @@ public class Ui {
         rootPanel.add(panelFactory.createLevelCompletePanel(), UIConstants.CARD_LEVEL_COMPLETE);
         rootPanel.add(panelFactory.createSettingsPanel(),   UIConstants.CARD_SETTINGS);
         rootPanel.add(panelFactory.createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
+        rootPanel.add(lobbyPanel,                           UIConstants.CARD_LOBBY);
+        rootPanel.add(attackerPanel,                        UIConstants.CARD_ATTACKER);
 
         // ── Frame ─────────────────────────────────────────────────────────────
         frame = new JFrame("IronDoom Scenario Demo");

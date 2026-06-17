@@ -7,17 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class AttackerUi extends JFrame {
+public class AttackerUi extends JPanel {
     
-    private final CommandTransport transport;
+    private CommandTransport transport;
     private final RemoteCanvas canvas;
 
-    public AttackerUi(CommandTransport transport) {
-        this.transport = transport;
-        
-        setTitle("IronDoom - Attacker Tactical Radar");
-        setSize(900, 650);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    public AttackerUi() {
         setLayout(new BorderLayout());
 
         // --- פאנל הרדאר ---
@@ -51,12 +46,31 @@ public class AttackerUi extends JFrame {
         canvas.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                String type = rbtnBallistic.isSelected() ? "BallisticMissile" : "UAV";
-                int worldX = canvas.screenToWorldX(e.getX());
-                double vy = type.equals("UAV") ? 5.0 : 15.0;
-                transport.sendCommand("/team/attacker/spawn", type, worldX, vy);
+                if (transport != null) {
+                    String type = rbtnBallistic.isSelected() ? "BallisticMissile" : "UAV";
+                    int worldX = canvas.screenToWorldX(e.getX());
+                    double vy = type.equals("UAV") ? 5.0 : 15.0;
+                    transport.sendCommand("/team/attacker/spawn", type, worldX, vy);
+                }
             }
         });
+    }
+
+    public void connect(String ipAddress) {
+        new Thread(() -> {
+            try {
+                NetworkTransport client = new NetworkTransport(new URI("ws://" + ipAddress + ":8080"));
+                if (client.connectBlocking()) {
+                    this.transport = client;
+                    client.setStateListener(this::updateRadar);
+                } else {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Could not connect to " + ipAddress));
+                }
+            } catch (Exception e) { 
+                e.printStackTrace(); 
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Connection error: " + e.getMessage()));
+            }
+        }).start();
     }
 
     // זו הפונקציה שהרשת קוראת לה כשמגיעים נתונים מהמגן
@@ -153,25 +167,5 @@ public class AttackerUi extends JFrame {
         int x, y, w, h;
         int endX, endY; // עבור קרני לייזר
         boolean isActive; // עבור סוללות
-    }
-
-    public static void main(String[] args) {
-        startRemote("localhost");
-    }
-
-    // פונקציה חדשה שמאפשרת ללובי להפעיל את התוקף עם IP ספציפי שמצאנו ברשת
-    public static void startRemote(String ipAddress) {
-        try {
-            NetworkTransport client = new NetworkTransport(new URI("ws://" + ipAddress + ":8080"));
-            if (client.connectBlocking()) {
-                SwingUtilities.invokeLater(() -> {
-                    AttackerUi ui = new AttackerUi(client);
-                    client.setStateListener(ui::updateRadar);
-                    ui.setVisible(true);
-                });
-            } else {
-                JOptionPane.showMessageDialog(null, "Could not connect to " + ipAddress);
-            }
-        } catch (Exception e) { e.printStackTrace(); }
     }
 }
