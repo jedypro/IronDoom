@@ -114,6 +114,7 @@ public class Ui {
     private java.awt.Image[] civilianImages = new java.awt.Image[3];
     private boolean paused = true;
     private JButton pauseButton;
+    private JButton multiplayerBtn;
     private boolean soundEnabled = true;
     private boolean settingsScreenActive = false;
     private javax.swing.Timer aimTimer;
@@ -455,6 +456,21 @@ public class Ui {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if ("GAME".equals(currentScreen) && pauseButton != null) pauseButton.doClick();
+            }
+        });
+
+        // Ctrl + Space - Show multiplayer button on intro screen
+        inputMap.put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_SPACE, java.awt.event.InputEvent.CTRL_DOWN_MASK), "showMultiplayer");
+        actionMap.put("showMultiplayer", new javax.swing.AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if ("INTRO".equals(currentScreen) && multiplayerBtn != null && !multiplayerBtn.isVisible()) {
+                    multiplayerBtn.setVisible(true);
+                    if (introPanel != null) {
+                        introPanel.revalidate();
+                        introPanel.repaint();
+                    }
+                }
             }
         });
 
@@ -807,6 +823,19 @@ public class Ui {
         title.setFont(title.getFont().deriveFont(Font.BOLD, 40f));
         title.setForeground(Color.WHITE);
 
+        multiplayerBtn = createStyledButton("Multiplayer", 20);
+        multiplayerBtn.setVisible(false); // הכפתור מוסתר כברירת מחדל
+
+        // הגדרת הפעולה בלחיצה
+        multiplayerBtn.addActionListener(e -> {
+            // שליחת פקודה לראוטר לעבור למצב מולטיפלייר
+            mainRouter.route("team/initMultiplayer", Params.of());
+            
+            // ביטול הכפתור לאחר הלחיצה כדי למנוע הפעלה כפולה של השרת
+            multiplayerBtn.setEnabled(false); 
+            multiplayerBtn.setText("MP Active");
+        });
+
         JLabel subtitle = new JLabel("Protect your cities and survive the waves");
         subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 18f));
         subtitle.setForeground(new Color(220, 220, 220));
@@ -825,6 +854,7 @@ public class Ui {
         buttonPanel.setOpaque(false);
         buttonPanel.add(playButton);
         buttonPanel.add(settingsButton);
+        buttonPanel.add(multiplayerBtn); 
 
         java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
         c.gridx = 0;

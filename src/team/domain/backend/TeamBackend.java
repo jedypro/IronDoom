@@ -18,6 +18,8 @@ public class TeamBackend {
     private static final int EXIT_MARGIN = 350;
     private static final int DEFAULT_SCORE = 300;
 
+    private boolean attackerControlled = false;
+
     // --- רשימות ונתונים ---
     private final List<AbstractThreat> threats = new ArrayList<>();
     private final List<DefenseEntity> activeInterceptors = new ArrayList<>();
@@ -140,9 +142,12 @@ public class TeamBackend {
 
         // 3. ייצור איומים וגלים (רק אם הזמן לא נגמר)
         if (!levelManager.isTimeUp(gameState.getLevel())) {
-            AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
-            if (newThreat != null) {
-                threats.add(newThreat);
+            // הוספנו את התנאי: רק אם זה שחקן יחיד, המחשב מייצר איומים לבד
+            if (!attackerControlled) {
+                AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
+                if (newThreat != null) {
+                    threats.add(newThreat);
+                }
             }
             barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort());
             barrageManager.checkBarrage(threats, teamUiPort());
@@ -363,6 +368,25 @@ public class TeamBackend {
             }
         }
         return false;
+    }
+    public void setAttackerControlled(boolean attackerControlled) {
+        this.attackerControlled = attackerControlled;
+    }
+
+    // פונקציה שמייצרת איום ישירות מהפקודה של התוקף ברשת
+    public void spawnThreatFromAttacker(String type, int x, double vy) {
+        // נייצר ID זמני (או מבוסס על זמן) כדי למנוע התנגשויות
+        int id = threats.size() + 10000; 
+        
+        // כרגע נייצר טיל בליסטי כברירת מחדל. אפשר להרחיב ל-UAV לפי ה-type.
+        MovementStrategy strategy = new BallisticMovementStrategy();
+        int randomVx = 150; // אפשר גם להעביר את זה מהתוקף בהמשך
+        
+        BallisticMissile newThreat = new BallisticMissile(
+            id, x, -50, randomVx, (int)vy, 12, 6, gameState.getLevel(), strategy
+        );
+        
+        threats.add(newThreat);
     }
 
     // --- Getters ---

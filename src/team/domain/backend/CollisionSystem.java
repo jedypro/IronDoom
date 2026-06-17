@@ -25,8 +25,18 @@ public class CollisionSystem {
                                 AssetSpawner assetSpawner,
                                 TeamUiPort uiPort) {
         
-        checkThreatCollisions(timeStep, threats, damageables, interceptors, gameState, populationManager, uiPort);
-        checkGiftCollisions(gifts, interceptors, damageables, gameState, assetSpawner, uiPort);
+        try {
+            GameLogger.log("CollisionSystem", "--> Starting checkThreatCollisions");
+            checkThreatCollisions(timeStep, threats, damageables, interceptors, gameState, populationManager, uiPort);
+            
+            GameLogger.log("CollisionSystem", "--> Starting checkGiftCollisions");
+            checkGiftCollisions(gifts, interceptors, damageables, gameState, assetSpawner, uiPort);
+            
+            GameLogger.log("CollisionSystem", "<-- Finished checkCollisions successfully");
+        } catch (Exception e) {
+            GameLogger.log("CollisionSystem", "!!! CRITICAL CRASH in CollisionSystem: " + e.getClass().getSimpleName() + " !!!");
+            e.printStackTrace(); // מדפיס את השגיאה המדויקת והשורה בה היא קרתה
+        }
     }
 
     private void checkThreatCollisions(double timeStep, List<AbstractThreat> threats, List<Damageable> damageables, 
