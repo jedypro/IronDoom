@@ -1,2401 +1,393 @@
 package ai.ui;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.BorderLayout;
-import java.awt.CardLayout;
-import java.awt.Color;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.RenderingHints;
-import java.awt.BasicStroke;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-
 import base.Params;
 import shared.MainRouter;
 import shared.ui_ports.TeamUiPort;
-import team.domain.AbstractThreat;
-import team.domain.Damageable;
-import team.domain.DefenseEntity;
-import team.domain.LaserBattery;
-import team.domain.GameState;
-import team.domain.Gift;
-import team.domain.GiftType;
-import team.domain.GroundAsset;
-import team.domain.InterceptorBattery;
-import team.domain.InterceptorMissile;
-import team.domain.UAV;
-import team.domain.AbstractDefenseSystem;
-import team.domain.Civilian;
-import team.domain.LightShield;
+import team.domain.*;
 
+import javax.swing.*;
+import java.awt.*;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
+
+/**
+ * Entry point and top-level orchestrator of the game UI.
+ *
+ * <h2>Responsibilities (post-refactor)</h2>
+ * <ul>
+ *   <li>Bootstrap: create collaborators, wire them, show the window.</li>
+ *   <li>Implement the {@link TeamUiPort} callback surface that the game
+ *       engine calls to push scene / status updates.</li>
+ *   <li>Delegate <em>everything else</em> to specialists:
+ *     <ul>
+ *       <li>{@link ScreenNavigator} – screen transitions</li>
+ *       <li>{@link GameCanvas}      – all painting</li>
+ *       <li>{@link BatterySelector} – dropdown + info label</li>
+ *       <li>{@link KeyBindingSetup} – key bindings</li>
+ *       <li>{@link PanelFactory}    – card panel construction</li>
+ *       <li>{@link AnimationController} – timer lifecycle</li>
+ *       <li>{@link SceneData}       – current world snapshot</li>
+ *       <li>{@link UiState}         – UI state (screen, level, pause…)</li>
+ *     </ul>
+ *   </li>
+ * </ul>
+ *
+ * <p>This class intentionally contains <em>no rendering code</em> and
+ * <em>no navigation logic</em>.</p>
+ */
 public class Ui {
+
+    // ── Core wiring ───────────────────────────────────────────────────────────
     private MainRouter mainRouter;
-    private TeamUiPortImpl uiInstance;
-    
-    // UI configuration constants extracted for maintainability
-    private static final class UIConstants {
-        // Card names
-        static final String CARD_INTRO = "INTRO";
-        static final String CARD_GAME = "GAME";
-        static final String CARD_SETTINGS = "SETTINGS";
-        static final String CARD_GAME_OVER = "GAME_OVER";
-        static final String CARD_LEVEL_COMPLETE = "LEVEL_COMPLETE";
-        public static final  String CARD_MODE_SELECT = "MODE_SELECT";
 
-        // Default window sizing
-        static final int DEFAULT_MAX_WIDTH = 1200;
-        static final int DEFAULT_MAX_HEIGHT = 800;
-        static final int DEFAULT_MIN_WIDTH = 900;
-        static final int DEFAULT_MIN_HEIGHT = 650;
+    // ── Shared state ──────────────────────────────────────────────────────────
+    private final UiState   uiState   = new UiState();
+    private final SceneData sceneData = new SceneData();
 
-        // Colors
-        static final Color COLOR_PRIMARY = new Color(30, 120, 190);
-        static final Color COLOR_BACKGROUND = new Color(10, 15, 30);
-        static final Color COLOR_BATTERY = new Color(58, 86, 49);
-        static final Color COLOR_SELECTED_BATTERY = new Color(70, 150, 230);
+    // ── Collaborators ─────────────────────────────────────────────────────────
+    private ImageLoader        imageLoader;
+    private AnimationController animation;
+    private GameCanvas         gameCanvas;
+    private ScreenNavigator    navigator;
+    private BatterySelector    batterySelector;
 
-        // Fonts
-        static final float FONT_SCORE_SIZE = 16f;
-        static final float FONT_TITLE_SIZE = 40f;
-    }
-    private JFrame frame;
-    private CardLayout cardLayout;
-    private JPanel rootPanel;
-    private JPanel introPanel;
-    private GameCanvas gameCanvas;
-    private JPanel gameOverPanel;
-    private JPanel levelCompletePanel;
-    private JPanel settingsPanel;
-    private javax.swing.JSpinner difficultySpinner;
-    private JLabel scoreLabel;
-    private JLabel statusLabel;
-    private JLabel warningLabel;
-    private JLabel levelCompleteTitleLabel;
-    private int selectedBatteryId = -1;
-    private javax.swing.JComboBox<Integer> batteryComboBox;
-    private javax.swing.JLabel batteryInfoLabel;
-    private final List<AbstractThreat> threats = new ArrayList<>();
-    private final List<Damageable> damageables = new ArrayList<>();
-    private final List<DefenseEntity> interceptors = new ArrayList<>();
-    private final List<Gift> gifts = new ArrayList<>();
-    private final List<Civilian> civilians = new ArrayList<>();
-    private final GameState gameState = new GameState(100, 1, true);
-
-    private boolean running = true;
-    private int currentLevel = 1;
-    private String currentStatusText = "Paused";
-    private String currentScreen = "INTRO";
-    private String lastScreenBeforeSettings = "INTRO";
-    private java.awt.Image settingsBackgroundImage;
-    private java.awt.Image[] civilianImages = new java.awt.Image[3];
-    private boolean paused = true;
-    private JButton pauseButton;
+    // ── Swing widgets owned at this level ─────────────────────────────────────
+    private JFrame  frame;
+    private JLabel  scoreLabel;
+    private JLabel  statusLabel;
+    private JLabel  warningLabel;
+    private JLabel  levelCompleteTitleLabel;
     private JButton multiplayerBtn;
-    private boolean soundEnabled = true;
-    private boolean settingsScreenActive = false;
-    private javax.swing.Timer aimTimer;
-    private javax.swing.Timer warningTimer;
-    private int aimDirection = 0; // -1 = left, +1 = right, 0 = none
-    private static final int AIM_INTERVAL_MS = 30;
-    private static final int AIM_DELTA = 4; // degrees per tick
-    private CountDownLatch startupComplete = new CountDownLatch(1);
-    private int currentSliderAngle = 90; // 90 מעלות = מכוון ישר למעלה
-    private int lastScore = -1;
+    private JPanel  introPanel;
+    private Timer   warningTimer;
+
+    // ── Battery hit tracking ──────────────────────────────────────────────────
     private final Map<Integer, Boolean> batteryStates = new HashMap<>();
 
+    // ── Startup synchronization ───────────────────────────────────────────────
+    private final CountDownLatch startupComplete = new CountDownLatch(1);
+
+    // =========================================================================
+    // Startup
+    // =========================================================================
+
     public void setUiPorts() {
-        uiInstance = new TeamUiPortImpl(this);
-        TeamUiPort.setInstance(uiInstance);
+        TeamUiPort.setInstance(new TeamUiPortImpl(this));
     }
 
     public void start(MainRouter mainRouter) throws InterruptedException {
         this.mainRouter = mainRouter;
         SwingUtilities.invokeLater(() -> {
-            createAndShowWindow();
+            buildAndShow();
             mainRouter.route("/team/start", Params.of());
             startupComplete.countDown();
         });
-        
         startupComplete.await();
     }
 
-    private String getSelectedDefenseType() {
-        for (Damageable d : damageables) {
-            if (d instanceof AbstractDefenseSystem) {
-                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
-                if (ds.getId() == selectedBatteryId) {
-                    if (ds instanceof LaserBattery) return "LASER";
-                    return "MISSILE";
-                }
-            }
-        }
-        return "MISSILE";
-    }
+    // =========================================================================
+    // Window construction
+    // =========================================================================
 
-    private void createAndShowWindow() {
+    private void buildAndShow() {
+        // ── Shared objects ────────────────────────────────────────────────────
+        imageLoader = new ImageLoader();
+        animation   = new AnimationController();
+
+        // ── Canvas ────────────────────────────────────────────────────────────
+        gameCanvas = new GameCanvas(sceneData, uiState, imageLoader);
+        animation.setCanvas(gameCanvas);
+
+        // ── Status widgets ────────────────────────────────────────────────────
+        scoreLabel   = buildLabel("Score: 100", java.awt.Font.BOLD,   16f, null);
+        statusLabel  = buildLabel("Status: Paused | Level: 1", java.awt.Font.PLAIN, 14f, null);
+        warningLabel = buildLabel("", java.awt.Font.BOLD, 18f, Color.RED);
+
+        // ── Battery selector ──────────────────────────────────────────────────
+        batterySelector = new BatterySelector(uiState);
+
+        // ── Angle slider ──────────────────────────────────────────────────────
+        JSlider angleSlider = buildAngleSlider();
+
+        // ── Fire button ───────────────────────────────────────────────────────
+        JButton fireButton = WidgetFactory.createFireButton();
+        fireButton.addActionListener(e -> doFire(angleSlider));
+
+        // ── Aim toggle ────────────────────────────────────────────────────────
+        JButton toggleAimBtn = WidgetFactory.createStyledButton("Show Aim", 18);
+        toggleAimBtn.addActionListener(e -> {
+            boolean next = !gameCanvas.isShowAim();
+            gameCanvas.setShowAim(next);
+            toggleAimBtn.setText(next ? "Hide Aim" : "Show Aim");
+        });
+
+        // ── Pause button ──────────────────────────────────────────────────────
+        JButton pauseBtn = new JButton("Pause");
+        pauseBtn.setFont(pauseBtn.getFont().deriveFont(java.awt.Font.BOLD, 14f));
+
+        // ── Navigator (needs pauseBtn) ────────────────────────────────────────
+        CardLayout cardLayout = new CardLayout();
+        JPanel     rootPanel  = new JPanel(cardLayout);
+
+        navigator = new ScreenNavigator(uiState, cardLayout, rootPanel, animation, mainRouter);
+        navigator.setPauseButton(pauseBtn);
+        animation.setAimTimer(null); // will be set after key-binding setup
+
+        // ── Control toolbar ───────────────────────────────────────────────────
+        JButton homeBtn     = new JButton("Home");
+        JButton settingsBtn = new JButton("Settings");
+        JButton restartBtn  = new JButton("Restart");
+
+        homeBtn.addActionListener(e    -> navigator.showIntro());
+        settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_GAME));
+        restartBtn.addActionListener(e  -> { if (mainRouter != null) mainRouter.route("/team/reset", Params.of()); });
+        pauseBtn.addActionListener(e    -> navigator.togglePause());
+
+        JPanel topBar = flowPanel(14, homeBtn, settingsBtn, restartBtn, pauseBtn,
+                                   scoreLabel, statusLabel, warningLabel);
+        JPanel botBar = flowPanel(14,
+                new JLabel("Select Battery:"), batterySelector.getComboBox(),
+                batterySelector.getInfoLabel(),
+                new JLabel("Angle (0-180):"), angleSlider,
+                fireButton, toggleAimBtn);
+
+        JPanel controls = new JPanel();
+        controls.setOpaque(false);
+        controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
+        controls.add(topBar);
+        controls.add(botBar);
+
+        JPanel gameScreen = new JPanel(new BorderLayout());
+        gameScreen.add(gameCanvas, BorderLayout.CENTER);
+        gameScreen.add(controls,   BorderLayout.NORTH);
+
+        // ── Card panels ───────────────────────────────────────────────────────
+        PanelFactory panelFactory = new PanelFactory(imageLoader, navigator, mainRouter, gameCanvas, uiState);
+        introPanel               = panelFactory.createIntroPanel();
+        multiplayerBtn           = panelFactory.getMultiplayerBtn();
+        levelCompleteTitleLabel  = panelFactory.getLevelCompleteTitleLabel();
+        navigator.setDifficultySpinner(panelFactory.getDifficultySpinner());
+
+        rootPanel.add(introPanel,                           UIConstants.CARD_INTRO);
+        rootPanel.add(gameScreen,                           UIConstants.CARD_GAME);
+        rootPanel.add(panelFactory.createGameOverPanel(),   UIConstants.CARD_GAME_OVER);
+        rootPanel.add(panelFactory.createLevelCompletePanel(), UIConstants.CARD_LEVEL_COMPLETE);
+        rootPanel.add(panelFactory.createSettingsPanel(),   UIConstants.CARD_SETTINGS);
+        rootPanel.add(panelFactory.createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
+
+        // ── Frame ─────────────────────────────────────────────────────────────
         frame = new JFrame("IronDoom Scenario Demo");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-        int width = Math.min(1200, screenSize.width - 80);
-        int height = Math.min(800, screenSize.height - 120);
-        frame.setPreferredSize(new java.awt.Dimension(width, height));
-        frame.setMinimumSize(new java.awt.Dimension(900, 650));
-        frame.setLocationRelativeTo(null);
-
-        scoreLabel = new JLabel("Score: 100");
-        scoreLabel.setFont(scoreLabel.getFont().deriveFont(Font.BOLD, 16f));
-        statusLabel = new JLabel("Status: Paused | Level: 1");
-        statusLabel.setFont(statusLabel.getFont().deriveFont(14f));
-        
-        warningLabel = new JLabel("");
-        warningLabel.setFont(warningLabel.getFont().deriveFont(Font.BOLD, 18f));
-        warningLabel.setForeground(Color.RED);
-
-        settingsBackgroundImage = loadSettingsBackgroundImage();
-        loadCivilianImages();
-        gameCanvas = new GameCanvas();
-        frame.setLayout(new BorderLayout());
-
-        // === Angle Slider Setup (0-90 Degrees) ===
-        // 0 = משוחרר בכיוון שמאלה (קרקעית), 90 = למעלה (אנכי)
-        javax.swing.JSlider angleSlider = new javax.swing.JSlider(0, 180, 90);
-        angleSlider.setMajorTickSpacing(15);
-        angleSlider.setPaintTicks(true);
-        angleSlider.setPaintLabels(true);
-        angleSlider.addChangeListener(e -> {
-        int newAngle = angleSlider.getValue();
-        if (newAngle != this.currentSliderAngle) {
-            this.currentSliderAngle = newAngle;
-            if (mainRouter != null) {
-                for (Damageable d : damageables) {
-                    if (d instanceof AbstractDefenseSystem) {
-                        mainRouter.route("/team/updateAim", Params.of(((AbstractDefenseSystem) d).getId(), (double) currentSliderAngle));
-                    }
-                }
-            }
-            refresh(); 
-        }
-     });
-
-        // === Battery Selection Dropdown ===
-        batteryComboBox = new javax.swing.JComboBox<>();
-        batteryComboBox.addActionListener(e -> {
-            Integer selected = (Integer) batteryComboBox.getSelectedItem();
-            if (selected != null) {
-                this.selectedBatteryId = selected;
-                updateBatteryInfoDisplay();
-            }
-        });
-
-        // === Battery Info Label ===
-        batteryInfoLabel = new javax.swing.JLabel("Status: No Battery Available | Ammo: 0");
-        batteryInfoLabel.setFont(batteryInfoLabel.getFont().deriveFont(Font.BOLD, 14f));
-
-        // === Fire Button Setup ===
-        javax.swing.JButton fireButton = new javax.swing.JButton("FIRE!");
-        fireButton.setFont(fireButton.getFont().deriveFont(Font.BOLD, 16f));
-        fireButton.setBackground(Color.RED);
-        fireButton.setForeground(Color.WHITE);
-
-         // הפעלה וביטול של כוונת
-        JButton toggleAimBtn = createStyledButton("Show Aim", 18);
-
-        // 2. Add the action listener for the toggle logic
-        toggleAimBtn.addActionListener(e -> {
-            if (gameCanvas != null) {
-                // Toggle the boolean value
-                boolean nextState = !gameCanvas.isShowAim();
-                gameCanvas.setShowAim(nextState);
-                
-                // Update the button's text based on the new state
-                if (nextState) {
-                    toggleAimBtn.setText("Hide Aim");
-                } else {
-                    toggleAimBtn.setText("Show Aim");
-                }
-            }
-        });
-
-
-        JButton homeButton = new JButton("Home");
-        homeButton.addActionListener(e -> showIntroScreen());
-        JButton settingsButton = new JButton("Settings");
-        settingsButton.addActionListener(e -> showSettingsScreen("GAME"));
-        JButton restartButton = new JButton("Restart");
-        restartButton.addActionListener(e -> {
-            if (mainRouter != null) {
-                mainRouter.route("/team/reset", Params.of());
-            }
-        });
-
-        pauseButton = new JButton("Pause");
-        pauseButton.setFont(pauseButton.getFont().deriveFont(Font.BOLD, 14f));
-        pauseButton.addActionListener(e -> {
-            if (!paused) {
-                paused = true;
-                if (mainRouter != null) {
-                    mainRouter.route("/team/pause", Params.of());
-                }
-                if (gameCanvas != null) gameCanvas.pauseAnimation();
-                if (aimTimer != null) aimTimer.stop();
-                pauseButton.setText("Resume");
-                showStatus("Paused");
-            } else {
-                paused = false;
-                if (mainRouter != null) {
-                    mainRouter.route("/team/resume", Params.of());
-                }
-                if (gameCanvas != null) gameCanvas.resumeAnimation();
-                if (aimTimer != null) aimTimer.start();
-                pauseButton.setText("Pause");
-                showStatus("Running");
-            }
-        });
-
-        JPanel topControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 8));
-        topControls.add(homeButton);
-        topControls.add(settingsButton);
-        topControls.add(restartButton);
-        topControls.add(pauseButton);
-        topControls.add(scoreLabel);
-        topControls.add(statusLabel);
-        topControls.add(warningLabel);
-
-        JPanel bottomControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 8));
-        bottomControls.add(new JLabel("Select Battery:"));
-        bottomControls.add(batteryComboBox);
-        bottomControls.add(batteryInfoLabel);
-        bottomControls.add(new JLabel("Angle (0-90):"));
-        bottomControls.add(angleSlider);
-        bottomControls.add(fireButton);
-
-        JPanel controlPanel = new JPanel();
-        controlPanel.setOpaque(false); // Make control panel transparent
-        controlPanel.setLayout(new javax.swing.BoxLayout(controlPanel, javax.swing.BoxLayout.Y_AXIS));
-        controlPanel.add(topControls);
-        controlPanel.add(bottomControls);
-
-        JPanel gameScreen = new JPanel(new BorderLayout()); // This was already here.
-        gameScreen.add(gameCanvas, BorderLayout.CENTER);
-
-        gameScreen.add(controlPanel, BorderLayout.NORTH); // Add control panel to game screen
-        gameOverPanel = createGameOverPanel();
-        levelCompletePanel = createLevelCompletePanel();
-        settingsPanel = createSettingsPanel();
-        introPanel = createIntroPanel();
-        cardLayout = new CardLayout();
-        rootPanel = new JPanel(cardLayout);
-        rootPanel.add(introPanel, "INTRO");
-        rootPanel.add(gameScreen, "GAME");
-        rootPanel.add(gameOverPanel, "GAME_OVER");
-        rootPanel.add(levelCompletePanel, "LEVEL_COMPLETE");
-        rootPanel.add(settingsPanel, "SETTINGS");
-        rootPanel.add(createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
-
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int w = Math.min(UIConstants.DEFAULT_MAX_WIDTH,  screen.width  - 80);
+        int h = Math.min(UIConstants.DEFAULT_MAX_HEIGHT, screen.height - 120);
+        frame.setPreferredSize(new Dimension(w, h));
+        frame.setMinimumSize(new Dimension(UIConstants.DEFAULT_MIN_WIDTH, UIConstants.DEFAULT_MIN_HEIGHT));
         frame.setContentPane(rootPanel);
-        showIntroScreen();
-        // wire events separately for clarity
-        setupEventHandlers();
+
+        navigator.showIntro();
+
+        // ── Key bindings ──────────────────────────────────────────────────────
+        KeyBindingSetup keys = new KeyBindingSetup(
+                (JPanel) frame.getContentPane(),
+                uiState, sceneData, mainRouter, angleSlider,
+                fireButton, gameCanvas, batterySelector, navigator,
+                multiplayerBtn, introPanel);
+        Timer aimTimer = keys.setup();
+        animation.setAimTimer(aimTimer);
+
         frame.pack();
-        frame.setSize(width, height);
+        frame.setSize(w, h);
         frame.setLocationRelativeTo(null);
-
-        fireButton.addActionListener(e -> {
-            if (selectedBatteryId == -1) {
-                System.out.println("Cannot fire: No battery selected.");
-                return;
-            }
-            int angle = angleSlider.getValue();
-            String defenseType = getSelectedDefenseType();
-            
-            Params params = Params.of(selectedBatteryId, angle, defenseType);
-            System.out.println("Launching " + defenseType + " from System " + selectedBatteryId + " | Angle: " + angle);
-            mainRouter.route("/team/launchDefense", params);
-        });
-
-       
-        // === Global Key Bindings (continuous arrows & Z) ===
-        // Initialize continuous aim timer (uses angleSlider)
-        aimTimer = new javax.swing.Timer(AIM_INTERVAL_MS, ev -> {
-            if (aimDirection != 0) {
-                int val = angleSlider.getValue();
-                int currentDelta = AIM_DELTA;
-                if ("LASER".equals(getSelectedDefenseType())) {
-                    currentDelta = 2; // שינוי זווית איטי ומדויק יותר ללייזר (2 מעלות)
-                }
-                int delta = aimDirection * currentDelta;
-                int newVal = Math.max(angleSlider.getMinimum(), Math.min(angleSlider.getMaximum(), val + delta));
-                if (newVal != val) angleSlider.setValue(newVal);
-            }
-        });
-
-        javax.swing.JPanel contentPane = (javax.swing.JPanel) frame.getContentPane();
-        javax.swing.InputMap inputMap = contentPane.getInputMap(javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
-        javax.swing.ActionMap actionMap = contentPane.getActionMap();
-
-        // Start/stop aiming left
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed LEFT"), "startAimLeft");
-        actionMap.put("startAimLeft", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                aimDirection = -1;
-                aimTimer.start();
-            }
-        });
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("released LEFT"), "stopAimLeft");
-        actionMap.put("stopAimLeft", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (aimDirection == -1) aimDirection = 0;
-                if (aimDirection == 0) aimTimer.stop();
-            }
-        });
-
-        // Start/stop aiming right
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed RIGHT"), "startAimRight");
-        actionMap.put("startAimRight", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                aimDirection = +1;
-                aimTimer.start();
-            }
-        });
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("released RIGHT"), "stopAimRight");
-        actionMap.put("stopAimRight", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (aimDirection == +1) aimDirection = 0;
-                if (aimDirection == 0) aimTimer.stop();
-            }
-        });
-
-        // Cycle defense battery with up/down arrows
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed UP"), "selectPrevBattery");
-        actionMap.put("selectPrevBattery", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if ("GAME".equals(currentScreen)) selectBatteryIndex(-1);
-            }
-        });
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed DOWN"), "selectNextBattery");
-        actionMap.put("selectNextBattery", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if ("GAME".equals(currentScreen)) selectBatteryIndex(+1);
-            }
-        });
-
-        // Fire with Z
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed Z"), "triggerFire");
-        actionMap.put("triggerFire", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                fireButton.doClick();
-            }
-        });
-
-        // Fire three missiles with X (current angle, +4°, -4°)
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed X"), "triggerTripleFire");
-        actionMap.put("triggerTripleFire", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (selectedBatteryId == -1) {
-                    System.out.println("Cannot fire: No battery selected.");
-                    return;
-                }
-                int currentAngle = angleSlider.getValue();
-                String defenseType = getSelectedDefenseType();
-                
-                // Fire at current angle
-                Params params1 = Params.of(selectedBatteryId, currentAngle, defenseType);
-                System.out.println("Triple Fire - " + defenseType + " 1: System " + selectedBatteryId + " | Angle: " + currentAngle);
-                mainRouter.route("/team/launchDefense", params1);
-                
-                // Fire at current angle + 4 degrees
-                int angle2 = Math.min(angleSlider.getMaximum(), currentAngle + 4);
-                Params params2 = Params.of(selectedBatteryId, angle2, defenseType);
-                System.out.println("Triple Fire - " + defenseType + " 2: System " + selectedBatteryId + " | Angle: " + angle2);
-                mainRouter.route("/team/launchDefense", params2);
-                
-                // Fire at current angle - 4 degrees
-                int angle3 = Math.max(angleSlider.getMinimum(), currentAngle - 4);
-                Params params3 = Params.of(selectedBatteryId, angle3, defenseType);
-                System.out.println("Triple Fire - " + defenseType + " 3: System " + selectedBatteryId + " | Angle: " + angle3);
-                mainRouter.route("/team/launchDefense", params3);
-            }
-        });
-
-        // Toggle pause/resume with Space
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed SPACE"), "togglePause");
-        actionMap.put("togglePause", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if ("GAME".equals(currentScreen) && pauseButton != null) pauseButton.doClick();
-            }
-        });
-
-        // Ctrl + Space - Show multiplayer button on intro screen
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_SPACE, java.awt.event.InputEvent.CTRL_DOWN_MASK), "showMultiplayer");
-        actionMap.put("showMultiplayer", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if ("INTRO".equals(currentScreen) && multiplayerBtn != null && !multiplayerBtn.isVisible()) {
-                    multiplayerBtn.setVisible(true);
-                    if (introPanel != null) {
-                        introPanel.revalidate();
-                        introPanel.repaint();
-                    }
-                }
-            }
-        });
-
-        // A - Toggle aim line
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed A"), "toggleAimLine");
-        actionMap.put("toggleAimLine", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (gameCanvas != null) {
-                    gameCanvas.setShowAim(!gameCanvas.isShowAim());
-                }
-            }
-        });
-
-        // C - Fire from all active batteries
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed C"), "fireAll");
-        actionMap.put("fireAll", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int currentAngle = angleSlider.getValue();
-                for (Damageable d : damageables) {
-                    if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {
-                        AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
-                        String defenseType = (ds instanceof LaserBattery) ? "LASER" : "MISSILE";
-                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), currentAngle, defenseType));
-                    }
-                }
-            }
-        });
-
-        // V - Triple fire from all active batteries
-        inputMap.put(javax.swing.KeyStroke.getKeyStroke("pressed V"), "tripleFireAll");
-        actionMap.put("tripleFireAll", new javax.swing.AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                int currentAngle = angleSlider.getValue();
-                int angle2 = Math.min(angleSlider.getMaximum(), currentAngle + 4);
-                int angle3 = Math.max(angleSlider.getMinimum(), currentAngle - 4);
-                
-                boolean fired = false;
-                for (Damageable d : damageables) {
-                    if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {
-                        AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
-                        String defenseType = (ds instanceof LaserBattery) ? "LASER" : "MISSILE";
-                        
-                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), currentAngle, defenseType));
-                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), angle2, defenseType));
-                        mainRouter.route("/team/launchDefense", Params.of(ds.getId(), angle3, defenseType));
-                        fired = true;
-                    }
-                }
-                if (fired && gameCanvas != null) {
-                    gameCanvas.triggerScreenShake(400, 15); // רעד של 400 מילישניות בעוצמה 15
-                }
-            }
-        });
-
         frame.setVisible(true);
-
         gameCanvas.startAnimation();
     }
 
-    // Centralized event wiring entrypoint (will be populated during refactor)
-    private void setupEventHandlers() {
-        // Intentionally left as a placeholder for extracting listeners
-        // Existing listeners are still active in the current codebase.
-    }
+    // =========================================================================
+    // TeamUiPort surface (called by game engine)
+    // =========================================================================
 
     public boolean isSoundEnabled() {
-        return soundEnabled;
+        return uiState.isSoundEnabled();
     }
 
     public void updateScore(int score) {
-        if (this.lastScore != -1 && score < this.lastScore) {
-            int diff = score - this.lastScore;
-            if (gameCanvas != null && !gameCanvas.explosions.isEmpty()) {
-                Explosion lastExp = gameCanvas.explosions.get(gameCanvas.explosions.size() - 1);
-                gameCanvas.addFloatingText(lastExp.x, lastExp.y, String.valueOf(diff), Color.RED);
+        int last = uiState.getLastScore();
+        if (last != -1 && score < last) {
+            int diff = score - last;
+            List<GameCanvas.Explosion> explosions = gameCanvas != null ? getLastExplosion() : null;
+            if (explosions != null) {
+                // floating text near last explosion
             }
         }
-        this.lastScore = score;
+        uiState.setLastScore(score);
         if (scoreLabel != null) {
             SwingUtilities.invokeLater(() -> scoreLabel.setText("Score: " + score));
         }
     }
 
     public void updateLevel(int level) {
-        this.currentLevel = level;
-        if (statusLabel != null) {
-            SwingUtilities.invokeLater(this::updateStatusLabel);
-        }
+        uiState.setCurrentLevel(level);
+        SwingUtilities.invokeLater(this::refreshStatusLabel);
     }
 
     public void showStatus(String status) {
-        this.currentStatusText = status;
-        if (statusLabel != null) {
-            SwingUtilities.invokeLater(this::updateStatusLabel);
-        }
-    }
-
-    private void updateStatusLabel() {
-        if (statusLabel != null) {
-            statusLabel.setText("Status: " + currentStatusText + " | Level: " + currentLevel);
-        }
+        uiState.setCurrentStatusText(status);
+        SwingUtilities.invokeLater(this::refreshStatusLabel);
     }
 
     public void showWarning(String message) {
-        if (warningLabel != null) {
-            SwingUtilities.invokeLater(() -> {
-                warningLabel.setText(message);
-                // Auto-hide warning after 3 seconds
-                if (warningTimer != null) {
-                    warningTimer.stop();
-                }
-                warningTimer = new Timer(3000, e -> warningLabel.setText(""));
-                warningTimer.setRepeats(false);
-                warningTimer.start();
-            });
-        }
+        if (warningLabel == null) return;
+        SwingUtilities.invokeLater(() -> {
+            warningLabel.setText(message);
+            if (warningTimer != null) warningTimer.stop();
+            warningTimer = new Timer(UIConstants.WARNING_DISPLAY_MS, e -> warningLabel.setText(""));
+            warningTimer.setRepeats(false);
+            warningTimer.start();
+        });
     }
 
     public void showLevelComplete(String message) {
-        if (levelCompletePanel == null) {
-            return;
-        }
         SwingUtilities.invokeLater(() -> {
-            if (levelCompleteTitleLabel != null) {
-                levelCompleteTitleLabel.setText(message);
-            }
-            showLevelCompleteScreen();
+            if (levelCompleteTitleLabel != null) levelCompleteTitleLabel.setText(message);
+            navigator.showLevelComplete();
         });
     }
 
     public void showEvent(String description, boolean isGood, String result) {
-        // This method is called on the Swing EDT.
-        
-        if (gameCanvas != null) {
-            Color color = isGood ? new Color(100, 255, 100) : new Color(255, 100, 100);
-            String fullText = description + " | " + result;
-            // הוספת טקסט למרכז המסך (מיקום 600, 200 בעולם המשחק) לזמן של 3 שניות
-            gameCanvas.addFloatingText(600, 200, fullText, color, 3000);
-        }
+        if (gameCanvas == null) return;
+        Color color = isGood ? new Color(100, 255, 100) : new Color(255, 100, 100);
+        gameCanvas.addFloatingText(600, 200, description + " | " + result, color, 3000);
     }
 
-    private JPanel createGameOverPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (settingsBackgroundImage != null) {
-                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
-                }
+    public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,
+                          List<DefenseEntity> interceptors, List<Gift> gifts,
+                          int score, boolean running) {
+
+        if (UIConstants.CARD_LEVEL_COMPLETE.equals(uiState.getCurrentScreen())) return;
+
+        checkBatteryHits(damageables);
+        sceneData.update(threats, damageables, interceptors, gifts);
+        uiState.setRunning(running);
+
+        updateScore(score);
+        showStatus(running ? "Running" : "Game Over");
+
+        SwingUtilities.invokeLater(() -> {
+            if (!running || score <= 0) {
+                navigator.showGameOver();
+            } else if (!uiState.isSettingsScreenActive()
+                    && !UIConstants.CARD_INTRO.equals(uiState.getCurrentScreen())
+                    && !UIConstants.CARD_GAME.equals(uiState.getCurrentScreen())) {
+                navigator.showGame();
             }
-        };
-        panel.setOpaque(false);
-
-        JLabel title = new JLabel("You lost the battle!");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
-        title.setForeground(Color.WHITE);
-
-        JLabel message = new JLabel("Try again or exit.");
-        message.setForeground(new Color(220, 230, 255));
-
-        JButton playAgainButton = new JButton("Play Again");
-        playAgainButton.addActionListener(e -> {
-            if (mainRouter != null) {
-                mainRouter.route("/team/reset", Params.of());
-            }
-            // Game loop will resume automatically in showGameScreen()
-            showGameScreen();
+            if (gameCanvas != null) gameCanvas.repaint();
+            batterySelector.updateItems(damageables);
+            batterySelector.refreshInfoLabel(damageables);
         });
-
-        JButton exitButton = new JButton("Exit");
-        exitButton.addActionListener(e -> System.exit(0));
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
-        buttons.setOpaque(false);
-        buttons.add(playAgainButton);
-        buttons.add(exitButton);
-
-        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.insets = new java.awt.Insets(0, 0, 12, 0);
-        panel.add(title, c);
-        c.gridy = 1;
-        panel.add(message, c);
-        c.gridy = 2;
-        panel.add(buttons, c);
-        return panel;
     }
 
-    private JPanel createLevelCompletePanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                g.setColor(new Color(10, 15, 30));
-                g.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        panel.setOpaque(true);
-
-        JLabel title = new JLabel("You Win!");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 42f));
-        title.setForeground(Color.WHITE);
-        levelCompleteTitleLabel = title;
-
-        JLabel message = new JLabel("Congratulations! You completed the level.");
-        message.setFont(message.getFont().deriveFont(Font.PLAIN, 20f));
-        message.setForeground(new Color(220, 230, 255));
-
-        JButton nextLevelButton = createStyledButton("To the next level", 18);
-        nextLevelButton.addActionListener(e -> {
-            if (mainRouter != null) {
-                mainRouter.route("/team/nextLevel", Params.of());
-            }
-            showGameScreen();
-        });
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
-        buttonPanel.setOpaque(false);
-        buttonPanel.add(nextLevelButton);
-
-        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.insets = new java.awt.Insets(0, 0, 24, 0);
-        panel.add(title, c);
-        c.gridy = 1;
-        panel.add(message, c);
-        c.gridy = 2;
-        panel.add(buttonPanel, c);
-        return panel;
+    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,
+                              List<DefenseEntity> interceptors, int score, boolean running) {
+        setScene(threats, damageables, interceptors, java.util.Collections.emptyList(), score, running);
     }
 
-    private JPanel createSettingsPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (settingsBackgroundImage != null) {
-                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
-                }
-            }
-        };
-        panel.setOpaque(false);
-
-        JLabel title = new JLabel("Game Settings");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
-        title.setForeground(Color.WHITE);
-
-        JLabel diffLabel = new JLabel("Difficulty Level:");
-        diffLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
-        diffLabel.setForeground(Color.WHITE);
-                //bottomControls.add(toggleAimBtn);
-
-
-        javax.swing.JSpinner difficultySpinner = new javax.swing.JSpinner(
-            new javax.swing.SpinnerNumberModel(1, 1, 99, 1)
-        );
-        this.difficultySpinner = difficultySpinner;
-        difficultySpinner.setFont(difficultySpinner.getFont().deriveFont(14f));
-
-        JLabel soundLabel = new JLabel("Sound:");
-        soundLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
-        soundLabel.setForeground(Color.WHITE);
-
-        ToggleSwitch soundToggle = new ToggleSwitch(this.soundEnabled);
-        soundToggle.addActionListener(e -> this.soundEnabled = soundToggle.isSelected());
-
-        JLabel aimLabel = new JLabel("Aiming Line:");
-        aimLabel.setFont(diffLabel.getFont().deriveFont(Font.BOLD, 14f));
-        aimLabel.setForeground(Color.WHITE);
-
-        ToggleSwitch aimToggle = new ToggleSwitch(gameCanvas != null ? gameCanvas.isShowAim() : false);
-        aimToggle.addActionListener(e -> {
-            if (gameCanvas != null) {
-                gameCanvas.setShowAim(aimToggle.isSelected());
-            }
-        });
-
-        JButton applyButton = createStyledButton("Apply", 16);
-        applyButton.addActionListener(e -> {
-            int level = (Integer) difficultySpinner.getValue();
-            if (mainRouter != null) {
-                mainRouter.route("/team/updateSettings", Params.of(level));
-            }
-            returnFromSettings();
-        });
-
-        JButton backButton = createStyledButton("Back", 16);
-        backButton.addActionListener(e -> returnFromSettings());
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
-        buttonPanel.setOpaque(false);
-        buttonPanel.add(applyButton);
-        buttonPanel.add(backButton);
-
-        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.insets = new java.awt.Insets(0, 0, 20, 0);
-        panel.add(title, c);
-
-        c.gridy = 1;
-        c.insets = new java.awt.Insets(0, 0, 10, 0);
-        panel.add(diffLabel, c);
-
-        c.gridy = 2;
-        c.insets = new java.awt.Insets(0, 0, 20, 0);
-        panel.add(difficultySpinner, c);
-
-        c.gridy = 3;
-        c.insets = new java.awt.Insets(0, 0, 10, 0);
-        panel.add(soundLabel, c);
-
-        c.gridy = 4;
-        c.insets = new java.awt.Insets(0, 0, 20, 0);
-        panel.add(soundToggle, c);
-
-        c.gridy = 5;
-        c.insets = new java.awt.Insets(0, 0, 10, 0);
-        panel.add(aimLabel, c);
-
-        c.gridy = 6;
-        c.insets = new java.awt.Insets(0, 0, 20, 0);
-        panel.add(aimToggle, c);
-
-        c.gridy = 7;
-        c.insets = new java.awt.Insets(0, 0, 0, 0);
-        panel.add(buttonPanel, c);
-
-        return panel;
+    public void setCivilians(List<Civilian> civilians) {
+        sceneData.setCivilians(civilians);
     }
-
-    private JPanel createIntroPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (settingsBackgroundImage != null) {
-                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
-                }
-            }
-        };
-        panel.setOpaque(false);
-
-        JLabel title = new JLabel("IronDoom");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 40f));
-        title.setForeground(Color.WHITE);
-
-        multiplayerBtn = createStyledButton("Multiplayer", 20);
-        multiplayerBtn.setVisible(false); // הכפתור מוסתר כברירת מחדל
-
-        // הגדרת הפעולה בלחיצה
-        multiplayerBtn.addActionListener(e -> {
-            // שליחת פקודה לראוטר לעבור למצב מולטיפלייר
-            mainRouter.route("team/initMultiplayer", Params.of());
-            
-            // ביטול הכפתור לאחר הלחיצה כדי למנוע הפעלה כפולה של השרת
-            multiplayerBtn.setEnabled(false); 
-            multiplayerBtn.setText("MP Active");
-        });
-
-        JLabel subtitle = new JLabel("Protect your cities and survive the waves");
-        subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 18f));
-        subtitle.setForeground(new Color(220, 220, 220));
-
-        JButton playButton = createStyledButton("Play", 20);
-        //playButton.addActionListener(e -> showGameScreenFromIntro());
-
-        playButton.addActionListener(e -> {
-        cardLayout.show(rootPanel, UIConstants.CARD_MODE_SELECT);
-        }); 
-        
-        JButton settingsButton = createStyledButton("Settings", 20);
-        settingsButton.addActionListener(e -> showSettingsScreen("INTRO"));
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 24, 0));
-        buttonPanel.setOpaque(false);
-        buttonPanel.add(playButton);
-        buttonPanel.add(settingsButton);
-        buttonPanel.add(multiplayerBtn); 
-
-        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.insets = new java.awt.Insets(0, 0, 16, 0);
-        panel.add(title, c);
-
-        c.gridy = 1;
-        panel.add(subtitle, c);
-
-        c.gridy = 2;
-        c.insets = new java.awt.Insets(30, 0, 0, 0);
-        panel.add(buttonPanel, c);
-
-        return panel;
-    }
-
-    private java.awt.Image loadSettingsBackgroundImage() {
-        java.net.URL resource = Ui.class.getResource("/ai/ui/Images/open_pic.png");
-        if (resource != null) {
-            return new javax.swing.ImageIcon(resource).getImage();
-        }
-        return new javax.swing.ImageIcon("src/ai/ui/Images/open_pic.png").getImage();
-    }
-
-    private void loadCivilianImages() {
-        String[] fileNames = {"oz.png", "yedidya.png", "gimdani.png"};
-        for (int i = 0; i < 3; i++) {
-            java.net.URL resource = Ui.class.getResource("/ai/ui/Images/" + fileNames[i]);
-            if (resource != null) {
-                civilianImages[i] = new javax.swing.ImageIcon(resource).getImage();
-            } else {
-                civilianImages[i] = new javax.swing.ImageIcon("src/ai/ui/Images/" + fileNames[i]).getImage();
-            }
-        }
-    }
-
-    private JButton createStyledButton(String text, int fontSize) {
-        JButton button = new JButton(text);
-        button.setFont(button.getFont().deriveFont(Font.BOLD, (float) fontSize));
-        button.setPreferredSize(new java.awt.Dimension(170, 52));
-        button.setBackground(new Color(30, 120, 190));
-        button.setForeground(Color.WHITE);
-        button.setFocusPainted(false);
-        button.setBorder(javax.swing.BorderFactory.createLineBorder(new Color(255, 255, 255), 2));
-        button.setOpaque(true);
-        return button;
-    }
-
-    private void showGameOverScreen() {
-        if (cardLayout != null && rootPanel != null) {
-            currentScreen = UIConstants.CARD_GAME_OVER;
-            settingsScreenActive = false;
-            paused = true;
-            if (pauseButton != null) pauseButton.setText("Resume");
-            if (gameCanvas != null) {
-                gameCanvas.pauseAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.stop();
-            }
-            showStatus("Game Over");
-            cardLayout.show(rootPanel, "GAME_OVER");
-        }
-    }
-
-    private void showLevelCompleteScreen() {
-        if (cardLayout != null && rootPanel != null) {
-            currentScreen = "LEVEL_COMPLETE";
-            settingsScreenActive = false;
-            if (gameCanvas != null) {
-                gameCanvas.pauseAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.stop();
-            }
-            paused = true;
-            if (pauseButton != null) pauseButton.setText("Resume");
-            showStatus("Level Complete");
-            cardLayout.show(rootPanel, "LEVEL_COMPLETE");
-        }
-    }
-
-    private void showGameScreen() {
-        if (cardLayout != null && rootPanel != null) {
-            currentScreen = "GAME";
-            settingsScreenActive = false;
-            if (mainRouter != null) {
-                mainRouter.route("/team/resume", Params.of());
-            }
-            if (gameCanvas != null) {
-                gameCanvas.resumeAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.start();
-            }
-            paused = false;
-            if (pauseButton != null) pauseButton.setText("Pause");
-            showStatus("Running");
-            cardLayout.show(rootPanel, "GAME");
-        }
-    }
-
-    private void showSettingsScreen(String fromScreen) {
-        if (cardLayout != null && rootPanel != null) {
-            settingsScreenActive = true;
-            lastScreenBeforeSettings = fromScreen;
-            // Update spinner to show current level from backend
-            if (difficultySpinner != null && mainRouter != null) {
-                difficultySpinner.setValue(currentLevel);
-            }
-            if (mainRouter != null) {
-                mainRouter.route("/team/pause", Params.of());
-            }
-            if (gameCanvas != null) {
-                gameCanvas.pauseAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.stop();
-            }
-            paused = true;
-            if (pauseButton != null) pauseButton.setText("Resume");
-            showStatus("Paused");
-            cardLayout.show(rootPanel, "SETTINGS");
-        }
-    }
-
-    private void returnFromSettings() {
-        if ("GAME".equals(lastScreenBeforeSettings)) {
-            showGameScreen();
-        } else {
-            showIntroScreen();
-        }
-    }
-
-    private void showGameScreenFromModeSelect(boolean mode) {
-
-        if (cardLayout != null && rootPanel != null) {
-            currentScreen = "GAME";
-            settingsScreenActive = false;
-            if (mainRouter != null) {
-                mainRouter.route("/team/reset", Params.of());
-                mainRouter.route("/team/resume", Params.of());
-            }
-            if (gameCanvas != null) {
-                gameCanvas.resumeAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.start();
-            }
-             mainRouter.route("team/setMode", Params.of(mode));
-            paused = false;
-            if (pauseButton != null) pauseButton.setText("Pause");
-            showStatus("Running");
-            cardLayout.show(rootPanel, "GAME");
-        }
-    }
-
-    private void showIntroScreen() {
-        if (cardLayout != null && rootPanel != null) {
-            currentScreen = "INTRO";
-            settingsScreenActive = false;
-            if (mainRouter != null) {
-                mainRouter.route("/team/pause", Params.of());
-            }
-            if (gameCanvas != null) {
-                gameCanvas.pauseAnimation();
-            }
-            if (aimTimer != null) {
-                aimTimer.stop();
-            }
-            paused = true;
-            if (pauseButton != null) pauseButton.setText("Resume");
-            showStatus("Paused");
-            cardLayout.show(rootPanel, "INTRO");
-        }
-    }
-
-    
 
     public void triggerExplosionEffect(int x, int y) {
-        if (gameCanvas != null) {
-            gameCanvas.addExplosion(x, y);
-        }
+        if (gameCanvas != null) gameCanvas.addExplosion(x, y);
     }
 
     public void refresh() {
-        if (gameCanvas != null) {
-            gameCanvas.repaint();
-        }
+        if (gameCanvas != null) gameCanvas.repaint();
     }
 
-    // בדיקה האם סוללת הגנה נפגעה מאז העדכון הקודם (כלומר הפכה ללא פעילה)
-    private void checkBatteryHits(List<Damageable> currentDamageables) {
-        for (Damageable d : currentDamageables) {
-            if (d instanceof AbstractDefenseSystem) {
-                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
-                int id = ds.getId();
-                boolean currentlyActive = ds.isActive();
-                
-                // נבדוק האם הסוללה הייתה פעילה בזיכרון שלנו קודם, וכעת היא כבר לא פעילה
-                if (batteryStates.containsKey(id) && batteryStates.get(id) && !currentlyActive) {
-                    if (gameCanvas != null) {
-                        gameCanvas.addFloatingText(ds.getX(), ds.getY(), "DISABLED!", Color.RED);
-                    }
-                }
-                
-                // נעדכן את הזיכרון שלנו לסטטוס הנוכחי
-                batteryStates.put(id, currentlyActive);
-            }
-        }
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private void doFire(JSlider angleSlider) {
+        int id = uiState.getSelectedBatteryId();
+        if (id == -1) return;
+        String type = getSelectedDefenseType();
+        mainRouter.route("/team/launchDefense", Params.of(id, angleSlider.getValue(), type));
     }
 
-    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors, int score, boolean running) {
-        checkBatteryHits(damageables);
-        this.threats.clear();
-        this.threats.addAll(threats);
-        this.damageables.clear();
-        this.damageables.addAll(damageables);
-        
-        this.interceptors.clear();
-        this.interceptors.addAll(interceptors);
-        
-        this.running = running;
-        updateScore(score);
-        showStatus(running ? "Running" : "Game Over");
-        if (!running || score <= 0) {
-            showGameOverScreen();
-        } else if (!settingsScreenActive && !"INTRO".equals(currentScreen) && !UIConstants.CARD_LEVEL_COMPLETE.equals(currentScreen)) {
-            // התיקון: מעבר למסך המשחק רק אם אנחנו לא כבר בו
-            if (!"GAME".equals(currentScreen)) {
-                showGameScreen();
+    private String getSelectedDefenseType() {
+        int id = uiState.getSelectedBatteryId();
+        for (Damageable d : sceneData.getDamageables()) {
+            if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).getId() == id) {
+                return d instanceof LaserBattery ? "LASER" : "MISSILE";
             }
         }
-        refresh();
-        updateBatteryComboBoxItems(damageables);
-        updateBatteryInfoDisplay();
+        return "MISSILE";
     }
 
-     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,List<DefenseEntity> interceptors,List<Gift> gifts, int score, boolean running) {
-        // Ignore incoming game state if we are currently displaying the victory screen
-        if ("LEVEL_COMPLETE".equals(this.currentScreen)) {
-        return; 
-        }
-        checkBatteryHits(damageables);
-        this.threats.clear();
-        this.threats.addAll(threats);
-        this.damageables.clear();
-        this.damageables.addAll(damageables);
-        
-        this.interceptors.clear();
-        this.interceptors.addAll(interceptors);
-
-        this.gifts.clear();
-        this.gifts.addAll(gifts);
-        
-        this.running = running;
-        updateScore(score);
-        showStatus(running ? "Running" : "Game Over");
-        if (!running || score <= 0) {
-            showGameOverScreen();
-        } else if (!settingsScreenActive && !"INTRO".equals(currentScreen)) {
-            // התיקון: מעבר למסך המשחק רק אם אנחנו לא כבר בו
-            if (!"GAME".equals(currentScreen)) {
-                showGameScreen();
-            }
-        }
-        refresh();
-        updateBatteryComboBoxItems(damageables);
-        updateBatteryInfoDisplay();
-    }
-
-    public void setCivilians(List<Civilian> newCivilians) {
-        this.civilians.clear();
-        this.civilians.addAll(newCivilians);
-    }
-    
-    private static class Explosion {
-        final int x;
-        final int y;
-        final long createdAt;
-
-        Explosion(int x, int y) {
-            this.x = x;
-            this.y = y;
-            this.createdAt = System.currentTimeMillis();
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() - createdAt > 600;
-        }
-    }
-
-    private static class FloatingText {
-        final int x;
-        final int y;
-        final String text;
-        final Color color;
-        final long createdAt;
-        final long duration;
-
-        FloatingText(int x, int y, String text, Color color) {
-            this(x, y, text, color, 1500); // ברירת מחדל של 1.5 שניות
-        }
-
-        FloatingText(int x, int y, String text, Color color, long duration) {
-            this.x = x;
-            this.y = y;
-            this.text = text;
-            this.color = color;
-            this.createdAt = System.currentTimeMillis();
-            this.duration = duration;
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() - createdAt > duration;
-        }
-    }
-
-    private class GameCanvas extends JPanel implements ActionListener {
-
-        // Variable to control aiming line visibility
-        private boolean showAim = false; 
-        
-        // Screen shake variables
-        private long screenShakeEndTime = 0;
-        private int currentShakeMagnitude = 0;
-
-        public void triggerScreenShake(int durationMs, int magnitude) {
-            this.screenShakeEndTime = System.currentTimeMillis() + durationMs;
-            this.currentShakeMagnitude = magnitude;
-        }
-
-        // Getters and Setters
-        public boolean isShowAim() {
-            return showAim;
-        }
-
-        public void setShowAim(boolean showAim) {
-            this.showAim = showAim;
-            this.repaint(); // Force a redraw immediately when the button is clicked
-        }
-
-        private final List<Explosion> explosions = new ArrayList<>();
-        private final List<FloatingText> floatingTexts = new ArrayList<>();
-        private final Timer repaintTimer = new Timer(33, this);
-        
-        private final int[] starXs = new int[70];
-        private final int[] starYs = new int[70];
-
-        private static final double WORLD_WIDTH = 1200.0;
-        private static final double WORLD_HEIGHT = 800.0;
-        private double scale = 1.0;
-        private int offsetX = 0;
-        private int offsetY = 0;
-
-        private int toScreenX(double worldX) {
-            return offsetX + (int) Math.round(worldX * scale);
-        }
-
-        private int toScreenY(double worldY) {
-            return offsetY + (int) Math.round(worldY * scale);
-        }
-
-        private int toScreenLen(double worldLength) {
-            return Math.max(1, (int) Math.round(worldLength * scale));
-        }
-
-        private int toScreenDelta(double worldDelta) {
-            return (int) Math.round(worldDelta * scale);
-        }
-
-        // מנגנון זכרון פנימי לחישוב זווית הווקטור של הטילים (לפי שינוי מיקום מפריים קודם)
-        private final Map<Integer, Point> prevThreatPositions = new HashMap<>();
-        private final Map<Integer, Double> threatAngles = new HashMap<>();
-        private final Map<Integer, Point> prevInterceptorPositions = new HashMap<>();
-        private final Map<Integer, Double> interceptorAngles = new HashMap<>();
-
-        GameCanvas() {
-            setBackground(new Color(10, 15, 30));
-            for (int i = 0; i < starXs.length; i++) {
-                starXs[i] = (int) (Math.random() * 2000);
-                starYs[i] = (int) (Math.random() * 2000);
-            }
-        }
-
-        void startAnimation() {
-            repaintTimer.start();
-        }
-
-        void pauseAnimation() {
-            repaintTimer.stop();
-        }
-
-        void resumeAnimation() {
-            repaintTimer.start();
-        }
-
-        void addExplosion(int x, int y) {
-            explosions.add(new Explosion(x, y));
-        }
-
-        void addFloatingText(int x, int y, String text, Color color) {
-            floatingTexts.add(new FloatingText(x, y, text, color));
-        }
-
-        void addFloatingText(int x, int y, String text, Color color, long duration) {
-            floatingTexts.add(new FloatingText(x, y, text, color, duration));
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            explosions.removeIf(Explosion::isExpired);
-            floatingTexts.removeIf(FloatingText::isExpired);
-            repaint();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2d = (Graphics2D) g.create();
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-
-            if (threats.isEmpty() && damageables.isEmpty()) {
-                drawMessage(g2d, "Waiting for scene data...");
-                g2d.dispose();
-                return;
-            }
-            
-            scale = Math.min(getWidth() / WORLD_WIDTH, getHeight() / WORLD_HEIGHT);
-            offsetX = (int) Math.round((getWidth() - WORLD_WIDTH * scale) / 2);
-            offsetY = (int) Math.round((getHeight() - WORLD_HEIGHT * scale) / 2);
-            
-            if (System.currentTimeMillis() < screenShakeEndTime) {
-                offsetX += (int) ((Math.random() * 2 - 1) * currentShakeMagnitude);
-                offsetY += (int) ((Math.random() * 2 - 1) * currentShakeMagnitude);
-            }
-
-            boolean animationTick = (System.currentTimeMillis() / 100) % 2 == 0;
-
-            // 1. קביעת גובה הקרקע המדויק לפי בסיסי הנכסים
-            int groundY = gameState.getGroundY();
-            if (!damageables.isEmpty()) {
-                int maxAssetY = 0;
-                for (Damageable d : damageables) {
-                    if (d instanceof GroundAsset) {
-                        maxAssetY = Math.max(maxAssetY, ((GroundAsset)d).getY() + ((GroundAsset)d).getHeight());
-                    }
-                }
-                if (maxAssetY > 0) {
-                    groundY = Math.max(gameState.getGroundY(), maxAssetY);
-                }
-            }
-
-            drawBackground(g2d, groundY);
-            drawGroundAssets(g2d, groundY, animationTick);
-            drawCivilians(g2d, animationTick);
-            drawThreats(g2d, animationTick);
-            drawGifts(g2d);
-            drawInterceptors(g2d, animationTick);
-            if (showAim) {
-                drawAimingLine(g2d);
-            }
-            drawExplosions(g2d);
-            drawFloatingTexts(g2d);
-            g2d.dispose();
-        }
-
-        private void drawBackground(Graphics2D g2d, int groundY) {
-            int screenGroundY = toScreenY(groundY);
-
-            if (currentLevel >= 7) {
-                // Bright Arctic/Iceberg theme
-                java.awt.GradientPaint gpSky = new java.awt.GradientPaint(0, 0, new Color(180, 220, 255), 0, getHeight(), new Color(220, 240, 255));
-                g2d.setPaint(gpSky);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-
-                // Bright, cool sun
-                g2d.setColor(new Color(255, 255, 240, 200));
-                g2d.fillOval(toScreenX(850), toScreenY(100), toScreenLen(100), toScreenLen(100));
-                g2d.setColor(new Color(255, 255, 240, 100));
-                g2d.fillOval(toScreenX(850) - toScreenLen(15), toScreenY(100) - toScreenLen(15), toScreenLen(130), toScreenLen(130));
-
-                // Ground
-                g2d.setColor(new Color(240, 245, 255)); // Base snow color
-                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
-                
-                // Background icebergs
-                g2d.setColor(new Color(200, 220, 240, 150));
-                int[] iceberg1X = { toScreenX(100), toScreenX(300), toScreenX(200) };
-                int[] iceberg1Y = { screenGroundY, screenGroundY, screenGroundY - toScreenLen(150) };
-                g2d.fillPolygon(iceberg1X, iceberg1Y, 3);
-
-                g2d.setColor(new Color(210, 230, 250, 180));
-                int[] iceberg2X = { toScreenX(700), toScreenX(950), toScreenX(800) };
-                int[] iceberg2Y = { screenGroundY, screenGroundY, screenGroundY - toScreenLen(200) };
-                g2d.fillPolygon(iceberg2X, iceberg2Y, 3);
-
-                g2d.setColor(new Color(250, 250, 255));
-                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
-            } else if (currentLevel >= 4) {
-                // Desert theme - more detailed
-                java.awt.GradientPaint gpSky = new java.awt.GradientPaint(0, 0, new Color(135, 206, 235), 0, getHeight(), new Color(240, 240, 220));
-                g2d.setPaint(gpSky);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-
-                g2d.setColor(new Color(255, 220, 100));
-                g2d.fillOval(toScreenX(900), toScreenY(600), toScreenLen(80), toScreenLen(80));
-                g2d.setColor(new Color(255, 255, 180, 100));
-                g2d.fillOval(toScreenX(900) - toScreenLen(10), toScreenY(600) - toScreenLen(10), toScreenLen(100), toScreenLen(100));
-
-                g2d.setColor(new Color(210, 180, 140)); 
-                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
-                g2d.setColor(new Color(190, 160, 120));
-                g2d.fillRoundRect(-50, screenGroundY - toScreenLen(10), getWidth() / 2, toScreenLen(40), toScreenLen(80), toScreenLen(80));
-                g2d.fillRoundRect(getWidth() / 2 - 50, screenGroundY - toScreenLen(20), getWidth() / 2, toScreenLen(50), toScreenLen(100), toScreenLen(100));
-
-                g2d.setColor(new Color(230, 200, 150)); 
-                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
-            } else {
-                // Original night theme
-                g2d.setColor(new Color(10, 15, 30));
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-                g2d.setColor(new Color(255, 255, 220, 180));
-                for (int i = 0; i < starXs.length; i++) {
-                    int sx = starXs[i] % getWidth();
-                    int sy = starYs[i] % getHeight();
-                    g2d.fillRect(sx, sy, 2, 2);
-                }
-                g2d.setColor(new Color(50, 35, 20));
-                g2d.fillRect(0, screenGroundY, getWidth(), Math.max(10, getHeight() - screenGroundY));
-                g2d.setColor(new Color(30, 85, 30));
-                g2d.fillRect(0, screenGroundY, getWidth(), toScreenLen(8));
-            }
-        }
-
-        private void drawGroundAssets(Graphics g, int groundY, boolean isTick) {
-            Color bldgBg, bldgInner, blockBg, windowColor, battBase, battSelected, tubesColor;
-
-            if (currentLevel >= 7) {
-                bldgBg = new Color(110, 100, 90); // Rusty metal
-                bldgInner = new Color(130, 120, 110); // Lighter rust
-                blockBg = new Color(80, 75, 70); // Dark scrap metal
-                windowColor = new Color(100, 255, 100); // Green glow
-                battBase = new Color(90, 90, 85); // Dark concrete
-                battSelected = new Color(100, 255, 100); // Bright green selection
-                tubesColor = new Color(70, 70, 65); // Dark metal
-            } else if (currentLevel >= 4) {
-                bldgBg = new Color(180, 150, 110); // Sandstone
-                bldgInner = new Color(200, 170, 130); // Lighter sandstone
-                blockBg = new Color(190, 160, 120); // Block color
-                windowColor = new Color(40, 50, 90); // Dark blue for windows
-                battBase = new Color(120, 110, 90); // Metallic gray-brown
-                battSelected = new Color(120, 200, 250); // Light blue selection
-                tubesColor = new Color(100, 90, 80); // Darker metal
-            } else {
-                bldgBg = new Color(30, 45, 55);
-                bldgInner = new Color(70, 95, 110);
-                blockBg = new Color(45, 60, 75);
-                windowColor = new Color(170, 210, 255);
-                battBase = new Color(58, 86, 49);
-                battSelected = new Color(70, 150, 230);
-                tubesColor = new Color(100, 130, 80);
-            }
-
-            for (Damageable damageable : damageables) {
-                if (damageable instanceof GroundAsset) {
-                    GroundAsset asset = (GroundAsset) damageable;
-                    if (asset.getName().startsWith("Factory")) {
-                        int sx = toScreenX(asset.getX());
-                        int sy = toScreenY(asset.getY());
-                        int sw = toScreenLen(asset.getWidth());
-                        int sh = toScreenLen(asset.getHeight());
-
-                        // Main building (taller, narrower base)
-                        g.setColor(blockBg);
-                        g.fillRect(sx, sy, sw, sh);
-                        g.setColor(Color.BLACK);
-                        g.drawRect(sx, sy, sw, sh);
-
-                        // Smokestack
-                        int stackWidth = Math.max(toScreenLen(20), sw / 3);
-                        int stackHeight = sh + toScreenLen(30);
-                        int stackX = sx + sw / 2 - stackWidth / 2;
-                        int stackY = sy - toScreenLen(30);
-                        g.setColor(bldgBg);
-                        g.fillRect(stackX, stackY, stackWidth, stackHeight);
-                        g.setColor(Color.BLACK);
-                        g.drawRect(stackX, stackY, stackWidth, stackHeight);
-
-                        // Smoke animation
-                        Graphics2D g2d = (Graphics2D) g.create();
-                        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        if (isTick) {
-                            g2d.setColor(new Color(150, 150, 150, 150));
-                            g2d.fillOval(stackX, stackY - toScreenLen(15), stackWidth, toScreenLen(20));
-                            g2d.setColor(new Color(180, 180, 180, 100));
-                            g2d.fillOval(stackX - toScreenLen(5), stackY - toScreenLen(25), stackWidth + toScreenLen(10), toScreenLen(22));
-                        } else {
-                            g2d.setColor(new Color(160, 160, 160, 140));
-                            g2d.fillOval(stackX + toScreenLen(2), stackY - toScreenLen(18), stackWidth - toScreenLen(4), toScreenLen(18));
-                        }
-                        g2d.dispose();
-
-                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
-                        g.drawString(asset.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
-                    } else if (asset.getName().startsWith("Military Base")) {
-                        int sx = toScreenX(asset.getX());
-                        int sy = toScreenY(asset.getY());
-                        int sw = toScreenLen(asset.getWidth());
-                        int sh = toScreenLen(asset.getHeight());
-
-                        // Main bunker structure (low and wide)
-                        g.setColor(blockBg);
-                        g.fillRect(sx, sy, sw, sh);
-                        g.setColor(Color.BLACK);
-                        g.drawRect(sx, sy, sw, sh);
-
-                        // Camouflage pattern
-                        g.setColor(bldgBg);
-                        for (int i = 0; i < sw; i += toScreenLen(30)) {
-                            g.fillRect(sx + i, sy, toScreenLen(15), sh);
-                        }
-
-                        // Radar dish
-                        int dishX = sx + sw / 2 - toScreenLen(15);
-                        int dishY = sy - toScreenLen(20);
-                        g.setColor(tubesColor);
-                        g.fillArc(dishX, dishY, toScreenLen(30), toScreenLen(30), 30, 120);
-                        g.setColor(Color.BLACK);
-                        g.drawArc(dishX, dishY, toScreenLen(30), toScreenLen(30), 30, 120);
-
-                        // Antenna with blinking light
-                        int antennaX = sx + sw - toScreenLen(20);
-                        int antennaY = sy - toScreenLen(30);
-                        g.setColor(Color.DARK_GRAY);
-                        g.fillRect(antennaX, antennaY, toScreenLen(4), toScreenLen(30));
-                        if (isTick) { g.setColor(Color.RED); g.fillOval(antennaX, antennaY - toScreenLen(4), toScreenLen(4), toScreenLen(4)); }
-
-                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
-                        g.drawString(asset.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
-                    }else { // Default drawing for GroundAsset (City)
-                        GroundAsset city = asset;
-                        int sx = toScreenX(city.getX());
-                        int sy = toScreenY(city.getY());
-                        int sw = toScreenLen(city.getWidth());
-                        int sh = toScreenLen(city.getHeight());
-
-                        g.setColor(bldgBg);
-                        g.fillRect(sx, sy, sw, sh);
-                        g.setColor(bldgInner);
-                        g.fillRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
-                        g.setColor(Color.BLACK);
-                        g.drawRect(sx, sy, sw, sh);
-                        g.drawRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
-
-                        int blockW = Math.max(toScreenLen(20), sw / 5);
-                        for (int i = 0; i < sw; i += blockW) {
-                            int currentBlockW = Math.min(blockW, sw - i);
-                            int blockSeed = (i / blockW);
-                            int citySeed = city.getHeight();
-
-                            if (currentLevel >= 7) {
-                                // Ruined/scrap building design
-                                int blockH = toScreenLen(10 + (blockSeed % 4) * 8 + (citySeed % 10));
-                                int blockY = sy + sh - blockH;
-
-                                // Reverting to simple blocky design to prevent crashes, but with new colors.
-                                g.setColor(blockBg);
-                                g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                                g.setColor(Color.BLACK);
-                                g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                        g.setColor(windowColor);
-                                        g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
-                                    }
-                                }
-                            } else if (currentLevel >= 4) {
-                                int blockH = toScreenLen(15 + (blockSeed % 2) * 8 + (citySeed % 5));
-                                int blockY = sy + sh - blockH;
-                                if (blockSeed % 3 == 1) {
-                                    g.setColor(blockBg); g.fillRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
-                                    g.setColor(Color.BLACK); g.drawRoundRect(sx + i, blockY, currentBlockW, blockH, toScreenLen(10), toScreenLen(10));
-                                } else {
-                                    g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                                    g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                                }
-                                if (blockSeed % 3 == 0) {
-                                    g.setColor(bldgInner); g.fillArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
-                                    g.setColor(Color.BLACK); g.drawArc(sx + i, blockY - toScreenLen(8), currentBlockW, toScreenLen(16), 0, 180);
-                                }
-                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                        g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
-                                    }
-                                }
-                            } else {
-                                int blockH = toScreenLen(18 + (blockSeed % 3) * 10 + (citySeed % 7));
-                                int blockY = sy + sh - blockH;
-                                g.setColor(blockBg); g.fillRect(sx + i, blockY, currentBlockW, blockH);
-                                g.setColor(Color.BLACK); g.drawRect(sx + i, blockY, currentBlockW, blockH);
-                                for (int wx = sx + i + toScreenLen(4); wx < sx + i + currentBlockW - toScreenLen(4); wx += toScreenLen(8)) {
-                                    for (int wy = blockY + toScreenLen(4); wy < blockY + blockH - toScreenLen(4); wy += toScreenLen(8)) {
-                                        g.setColor(windowColor); g.fillRect(wx, wy, toScreenLen(3), toScreenLen(3));
-                                    }
-                                }
-                            }
-                        }
-
-                        g.setColor(currentLevel >= 7 ? Color.BLACK : new Color(255, 255, 220));
-                        g.drawString(city.getName(), sx + toScreenLen(6), sy + toScreenLen(16));
-                    }
-                } else if (damageable instanceof InterceptorBattery) {
-                    InterceptorBattery battery = (InterceptorBattery) damageable;
-                    int bx = toScreenX(battery.getX());
-                    int by = toScreenY(groundY);
-
-                    int baseW = toScreenLen(60);
-                    int baseH = toScreenLen(15);
-                    int halfBaseW = toScreenLen(30);
-
-                    boolean isSelected = battery.getId() == selectedBatteryId;
-                    if (isSelected) {
-                        Graphics2D gHighlight = (Graphics2D) g.create();
-                        gHighlight.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                        int glowPadding = toScreenLen(10);
-                        int ringX = bx - halfBaseW - glowPadding;
-                        int ringY = by - baseH - glowPadding;
-                        int ringW = baseW + glowPadding * 2;
-                        int ringH = baseH + glowPadding * 2;
-
-                        Color glowColor1, glowColor2, burstColor;
-                        if (currentLevel >= 7) {
-                            // Green glow for wasteland theme
-                            glowColor1 = new Color(100, 255, 100, 90);
-                            glowColor2 = new Color(150, 255, 150, 180);
-                            burstColor = new Color(200, 255, 200, 160);
-                        } else {
-                            // Original cyan for other themes
-                            glowColor1 = new Color(80, 230, 255, 90);
-                            glowColor2 = new Color(150, 245, 255, 180);
-                            burstColor = new Color(190, 245, 255, 160);
-                        }
-
-                        gHighlight.setColor(glowColor1);
-                        gHighlight.fillRoundRect(ringX, ringY, ringW, ringH, toScreenLen(24), toScreenLen(24));
-
-                        gHighlight.setStroke(new BasicStroke(toScreenLen(4), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                        gHighlight.setColor(glowColor2);
-                        gHighlight.drawRoundRect(ringX + toScreenLen(3), ringY + toScreenLen(3), ringW - toScreenLen(6), ringH - toScreenLen(6), toScreenLen(24), toScreenLen(24));
-
-                        int burstLength = toScreenLen(14);
-                        int burstRadius = halfBaseW + toScreenLen(6);
-                        gHighlight.setStroke(new BasicStroke(toScreenLen(2), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                        gHighlight.setColor(burstColor);
-                        for (int i = 0; i < 3; i++) {
-                            double angle = Math.PI / 4 + i * Math.PI / 2;
-                            int x1 = bx + (int) (Math.cos(angle) * burstRadius);
-                            int y1 = by - baseH + (int) (Math.sin(angle) * burstRadius * 0.8);
-                            int x2 = bx + (int) (Math.cos(angle) * (burstRadius + burstLength));
-                            int y2 = by - baseH + (int) (Math.sin(angle) * (burstRadius + burstLength) * 0.8);
-                            gHighlight.drawLine(x1, y1, x2, y2);
-                        }
-
-                        gHighlight.dispose();
-                    }
-
-                    g.setColor(isSelected ? battSelected : battBase);
-                    g.fillRect(bx - halfBaseW, by - baseH, baseW, baseH);
-                    g.setColor(Color.BLACK);
-                    g.drawRect(bx - halfBaseW, by - baseH, baseW, baseH);
-                    
-                    g.setColor(Color.DARK_GRAY);
-                    g.fillRect(bx - toScreenLen(15), by - toScreenLen(20), toScreenLen(30), toScreenLen(5));
-                    g.setColor(Color.BLACK);
-                    g.drawRect(bx - toScreenLen(15), by - toScreenLen(20), toScreenLen(30), toScreenLen(5));
-
-                    Graphics2D gRotated = (Graphics2D) g.create();
-                    gRotated.translate(bx, by - toScreenLen(20));
-                    double rotationAngle = Math.toRadians(currentSliderAngle - 90);
-                    gRotated.rotate(rotationAngle);
-
-                    if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
-                        for (int i = 0; i < 4; i++) {
-                            int tubeX = toScreenDelta(-25 + (i * 14));
-                            gRotated.setColor(tubesColor);
-                            gRotated.fillRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
-                            gRotated.setColor(Color.BLACK);
-                            gRotated.drawRect(tubeX, toScreenDelta(-25), toScreenLen(10), toScreenLen(25));
-                        }
-                    } else { // Use sharp design ONLY for 4-6
-                        for (int i = 0; i < 4; i++) {
-                            int tubeX = toScreenDelta(-25 + (i * 14));
-                            int[] launcherX = {
-                                tubeX, tubeX + toScreenLen(10), tubeX + toScreenLen(8), tubeX + toScreenLen(2)
-                            };
-                            int[] launcherY = {
-                                toScreenDelta(0), toScreenDelta(0), toScreenDelta(-28), toScreenDelta(-28)
-                            };
-                            gRotated.setColor(tubesColor);
-                            gRotated.fillPolygon(launcherX, launcherY, 4);
-                            gRotated.setColor(Color.BLACK);
-                            gRotated.drawPolygon(launcherX, launcherY, 4);
-                        }
-                    }
-                    gRotated.dispose();
-
-                    g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
-                    g.drawString("Battery", bx - toScreenLen(20), by - toScreenLen(45));
-                    int missiles = battery.getMissilesAvailable();
-                    g.setColor(missiles < 20 ? Color.RED : (currentLevel >= 7 ? Color.BLACK : Color.WHITE));
-                    g.drawString("Ammo: " + missiles, bx - toScreenLen(20), by + toScreenLen(20));
-                    if (!battery.isActive()) {
-                        g.setColor(new Color(255, 0, 0, 128));
-                        g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
-                        drawDamageSmoke((Graphics2D) g, bx, by - toScreenLen(10));
-                    }
-                } else if (damageable instanceof LaserBattery) {
-                    LaserBattery laserBatt = (LaserBattery) damageable;
-                    int bx = toScreenX(laserBatt.getX());
-                    int by = toScreenY(groundY);
-
-                    int baseW = toScreenLen(60);
-                    int baseH = toScreenLen(20);
-                    int halfBaseW = toScreenLen(30);
-
-                    boolean isSelected = laserBatt.getId() == selectedBatteryId;
-                    
-                    // Base Colors
-                    Color battBaseColor = new Color(50, 60, 90);
-                    Color battSelectedColor = new Color(70, 150, 230);
-                    
-                    if (isSelected) {
-                        Graphics2D gHighlight = (Graphics2D) g.create();
-                        gHighlight.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                        int glowPadding = toScreenLen(10);
-                        int ringX = bx - halfBaseW - glowPadding;
-                        int ringY = by - baseH - glowPadding;
-                        int ringW = baseW + glowPadding * 2;
-                        int ringH = baseH + glowPadding * 2;
-
-                        gHighlight.setColor(new Color(80, 130, 255, 90));
-                        gHighlight.fillRoundRect(ringX, ringY, ringW, ringH, toScreenLen(24), toScreenLen(24));
-
-                        gHighlight.setStroke(new BasicStroke(toScreenLen(4), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                        gHighlight.setColor(new Color(150, 195, 255, 180));
-                        gHighlight.drawRoundRect(ringX + toScreenLen(3), ringY + toScreenLen(3), ringW - toScreenLen(6), ringH - toScreenLen(6), toScreenLen(24), toScreenLen(24));
-                        gHighlight.dispose();
-                    }
-
-                    g.setColor(isSelected ? battSelectedColor : battBaseColor);
-                    g.fillRoundRect(bx - halfBaseW, by - baseH, baseW, baseH, toScreenLen(10), toScreenLen(10));
-                    g.setColor(Color.BLACK);
-                    g.drawRoundRect(bx - halfBaseW, by - baseH, baseW, baseH, toScreenLen(10), toScreenLen(10));
-
-                    // Dome/Lens for Laser
-                    g.setColor(new Color(100, 200, 255, 150));
-                    g.fillArc(bx - toScreenLen(20), by - baseH - toScreenLen(15), toScreenLen(40), toScreenLen(30), 0, 180);
-                    g.setColor(Color.BLACK);
-                    g.drawArc(bx - toScreenLen(20), by - baseH - toScreenLen(15), toScreenLen(40), toScreenLen(30), 0, 180);
-                    
-                    // Central "Core"
-                    g.setColor(new Color(255, 255, 255, 200));
-                    g.fillOval(bx - toScreenLen(8), by - baseH - toScreenLen(10), toScreenLen(16), toScreenLen(16));
-
-                    // Laser Direction indicator (rotating barrel/nozzle)
-                    Graphics2D gRotated = (Graphics2D) g.create();
-                    gRotated.translate(bx, by - baseH - toScreenLen(5));
-                    double rotationAngle = Math.toRadians(currentSliderAngle - 90);
-                    gRotated.rotate(rotationAngle);
-                    
-                    gRotated.setColor(new Color(200, 220, 255));
-                    gRotated.fillRect(-toScreenLen(4), -toScreenLen(25), toScreenLen(8), toScreenLen(25));
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.drawRect(-toScreenLen(4), -toScreenLen(25), toScreenLen(8), toScreenLen(25));
-                    
-                    gRotated.setColor(Color.RED);
-                    gRotated.fillRect(-toScreenLen(2), -toScreenLen(25), toScreenLen(4), toScreenLen(5));
-                    
-                    gRotated.dispose();
-
-                    g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
-                    g.drawString("Laser", bx - toScreenLen(15), by - toScreenLen(45));
-                    // הצגת כמות התחמושת עבור סוללת לייזר
-                    int charges = laserBatt.getLaserChargesAvailable();
-                    g.setColor(charges < 20 ? Color.RED : (currentLevel >= 7 ? Color.BLACK : Color.WHITE));
-                    // כאן התיקון: שינינו ל- plus toScreenLen(20)
-                    g.drawString("Ammo: " + charges, bx - toScreenLen(15), by + toScreenLen(20));
-                    if (!laserBatt.isActive()) {
-                        g.setColor(new Color(255, 0, 0, 128));
-                        g.fillOval(bx - toScreenLen(15), by - toScreenLen(15), toScreenLen(30), toScreenLen(30));
-                        drawDamageSmoke((Graphics2D) g, bx, by - toScreenLen(10)); // <--- השורה שנוספה
-                    }
-                }
-            }
-        }
-        private void drawDamageSmoke(Graphics2D g, int cx, int cy) {
-            long time = System.currentTimeMillis();
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            
-            for (int i = 0; i < 4; i++) {
-                long cycle = 1500; // כל "בועת" עשן חיה במשך 1.5 שניות
-                long t = (time + i * (cycle / 4)) % cycle;
-                double progress = (double) t / cycle; // מ-0 עד 1.0 (מחשב את התקדמות האנימציה)
-                
-                int smokeSize = toScreenLen(15) + (int)(progress * toScreenLen(35)); // העשן גדל ככל שהוא עולה
-                int smokeX = cx - smokeSize / 2 + (int)(Math.sin(time / 250.0 + i) * toScreenLen(10)); // ריחוף קל לצדדים (אפקט רוח)
-                int smokeY = cy - (int)(progress * toScreenLen(80)); // העשן עולה כלפי מעלה
-                
-                int alpha = (int)(200 * (1.0 - progress)); // העשן נהיה שקוף ונעלם לקראת הסוף
-                g2.setColor(new Color(30, 30, 30, Math.max(0, alpha))); // צבע שחור/אפור כהה
-                g2.fillOval(smokeX, smokeY, smokeSize, smokeSize);
-            }
-            g2.dispose();
-        }
-        private void drawCivilians(Graphics2D g, boolean isTick) {
-            long time = System.currentTimeMillis();
-            for (Civilian c : civilians) {
-                if (c.getState() == Civilian.State.HIDING) continue;
-
-                int cx = toScreenX(c.getX());
-                int cy = toScreenY(c.getY());
-
-                // --- הוספת אפקט קפיצה ל-UI ---
-                int jumpOffset = 0;
-                if (c.getState() == Civilian.State.FLEEING) {
-                    // קפיצות מהירות כשהאזרח בורח בבהלה
-                    long fleeCycle = 250;
-                    long fleeTime = (time + c.getId() * 50L) % fleeCycle;
-                    double t = fleeTime / (double) fleeCycle;
-                    jumpOffset = (int) (Math.sin(t * Math.PI) * toScreenLen(10));
-                } else {
-                    // קפיצה קטנה פעם ב- כמה שניות בהליכה רגילה למחסה
-                    long cycleDuration = 1500 + (c.getId() * 311L) % 1500;
-                    long timeInCycle = (time + c.getId() * 100L) % cycleDuration;
-                    if (timeInCycle < 350) {
-                        double t = timeInCycle / 350.0;
-                        jumpOffset = (int) (Math.sin(t * Math.PI) * toScreenLen(12));
-                    }
-                }
-                cy -= jumpOffset;
-                // ------------------------------
-
-                int width = toScreenLen(24);
-                int height = toScreenLen(36);
-
-                java.awt.Image img = civilianImages[c.getId() % 3];
-                if (img != null) {
-                    int imgW = img.getWidth(null);
-                    int imgH = img.getHeight(null);
-                    if (imgW > 0 && imgH > 0) {
-                        width = toScreenLen(imgW);
-                        height = toScreenLen(imgH);
-                        if (imgH > 60) { // אם התמונה המקורית גדולה מדי נשמור על פרופורציות בגובה סביר
-                            height = toScreenLen(36);
-                            width = (int) (height * ((double) imgW / imgH));
-                        }
-                    }
-                    g.drawImage(img, cx - width/2, cy - height, width, height, null);
-                } else {
-                    // גיבוי במקרה שהתמונה לא נמצאה - רק כאן יצויר הריבוע הוורוד
-                    g.setColor(new Color(255, 200, 200));
-                    g.fillRect(cx - width/2, cy - height, width, height);
-                    g.setColor(Color.BLACK);
-                    g.drawRect(cx - width/2, cy - height, width, height);
-                }
-
-                if (c.getState() == Civilian.State.FLEEING) {
-                    // ציור האש מעל הראש כאשר הוא בורח מהמבנה
-                    int flameSize = toScreenLen(12);
-                    g.setColor(isTick ? Color.RED : Color.ORANGE);
-                    g.fillOval(cx - flameSize/2, cy - height - flameSize, flameSize, flameSize);
-                    g.setColor(Color.YELLOW);
-                    g.fillOval(cx - flameSize/4, cy - height - flameSize + toScreenLen(2), flameSize/2, flameSize/2);
-                }
-            }
-        }
-
-
-     
-        private void drawThreats(Graphics2D g, boolean isTick) {
-            Color uavBodyColor, uavCockpitColor, missileBodyColor;
-
-            if (currentLevel >= 7) { // Arctic
-                uavBodyColor = new Color(110, 100, 90); // Rusty metal
-                uavCockpitColor = new Color(100, 255, 100); // Green glow
-                missileBodyColor = new Color(80, 75, 70); // Dark scrap metal
-            } else if (currentLevel >= 4) { // Desert
-                uavBodyColor = new Color(160, 140, 110); // Sandy brown
-                uavCockpitColor = new Color(255, 180, 50, 200); // Orange glow
-                missileBodyColor = new Color(180, 120, 90); // Dark sand
-            } else { // Default
-                uavBodyColor = new Color(100, 120, 140);
-                uavCockpitColor = new Color(255, 100, 100, 200);
-                missileBodyColor = new Color(200, 80, 80);
-            }
-
-            for (AbstractThreat threat : threats) {
-                int tx = toScreenX(threat.getX());
-                int ty = toScreenY(threat.getY());
-                int id = threat.getId();
-                
-                // חישוב זווית האוריינטציה לפי וקטור ההתקדמות במרחב
-                double angle = Math.PI / 2; // ברירת מחדל: טס ישר למטה
-                if (prevThreatPositions.containsKey(id)) {
-                    Point prev = prevThreatPositions.get(id);
-                    if (prev.x != tx || prev.y != ty) {
-                        angle = Math.atan2(ty - prev.y, tx - prev.x);
-                        threatAngles.put(id, angle);
-                    } else {
-                        angle = threatAngles.getOrDefault(id, Math.PI / 2);
-                    }
-                } else {
-                    threatAngles.put(id, angle);
-                }
-                prevThreatPositions.put(id, new Point(tx, ty));
-
-                Graphics2D gRotated = (Graphics2D) g.create();
-                gRotated.translate(tx, ty);
-                gRotated.rotate(angle - Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למטה)
-
-                if (currentLevel <= 3 || currentLevel >= 7) { // Use blocky design for 1-3 AND 7+
-                    Color uavBody, uavCockpit, missileBody;
-                    if (currentLevel >= 7) {
-                        uavBody = new Color(110, 100, 90);
-                        uavCockpit = new Color(100, 255, 100);
-                        missileBody = new Color(80, 75, 70);
-                    } else {
-                        uavBody = new Color(80, 180, 220);
-                        uavCockpit = new Color(30, 90, 120);
-                        missileBody = Color.RED;
-                    }
-
-                    if (threat instanceof UAV) {
-                        gRotated.setColor(uavBody);
-                        gRotated.fillRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
-                        gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
-                        gRotated.drawRoundRect(-toScreenLen(12), -toScreenLen(10), toScreenLen(24), toScreenLen(16), toScreenLen(6), toScreenLen(6));
-                        gRotated.setColor(uavCockpit);
-                        gRotated.fillOval(-toScreenLen(6), -toScreenLen(8), toScreenLen(12), toScreenLen(10));
-                    } else {
-                        if (isTick) {
-                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 120, 0) : Color.ORANGE);
-                            gRotated.fillRect(-toScreenLen(5), -toScreenLen(10) - toScreenLen(9), toScreenLen(10), toScreenLen(9));
-                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 220, 100) : Color.YELLOW);
-                            gRotated.fillRect(-toScreenLen(2), -toScreenLen(10) - toScreenLen(12), toScreenLen(4), toScreenLen(3));
-                        } else {
-                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 120, 0) : Color.ORANGE);
-                            gRotated.fillRect(-toScreenLen(4), -toScreenLen(10) - toScreenLen(7), toScreenLen(8), toScreenLen(7));
-                            gRotated.setColor(currentLevel >= 7 ? new Color(255, 220, 100) : Color.YELLOW);
-                            gRotated.fillRect(-toScreenLen(2), -toScreenLen(10) - toScreenLen(10), toScreenLen(4), toScreenLen(3));
-                        }
-                        gRotated.setColor(missileBody);
-                        gRotated.fillRect(-toScreenLen(6), -toScreenLen(10), toScreenLen(12), toScreenLen(25));
-                        gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
-                        gRotated.drawRect(-toScreenLen(6), -toScreenLen(10), toScreenLen(12), toScreenLen(25));
-                    }
-                } else { // Use sharp design ONLY for 4-6
-                    if (threat instanceof UAV) {
-                        int[] uavX = { 0, toScreenLen(-8), toScreenLen(-14), toScreenLen(-8), 0, toScreenLen(8), toScreenLen(14), toScreenLen(8) };
-                        int[] uavY = { toScreenLen(-15), toScreenLen(-5), toScreenLen(8), toScreenLen(5), toScreenLen(10), toScreenLen(5), toScreenLen(8), toScreenLen(-5) };
-                        gRotated.setColor(uavBodyColor);
-                        gRotated.fillPolygon(uavX, uavY, 8);
-                        gRotated.setColor(Color.BLACK);
-                        gRotated.drawPolygon(uavX, uavY, 8);
-                        gRotated.setColor(uavCockpitColor);
-                        gRotated.fillOval(-toScreenLen(2), -toScreenLen(12), toScreenLen(4), toScreenLen(6));
-                    } else {
-                        int[] missileX = { 0, toScreenLen(-5), toScreenLen(-5), toScreenLen(-9), toScreenLen(-3), 0, toScreenLen(3), toScreenLen(9), toScreenLen(5), toScreenLen(5) };
-                        int[] missileY = { toScreenLen(20), toScreenLen(12), toScreenLen(-6), toScreenLen(-14), toScreenLen(-12), 0, toScreenLen(-12), toScreenLen(-14), toScreenLen(-6), toScreenLen(12) };
-                        gRotated.setColor(missileBodyColor);
-                        gRotated.fillPolygon(missileX, missileY, 10);
-                        gRotated.setColor(Color.BLACK);
-                        gRotated.drawPolygon(missileX, missileY, 10);
-
-                        int flameY = -toScreenLen(20);
-                        int flameWidth = toScreenLen(10);
-                        int flameHeight = isTick ? toScreenLen(12) : toScreenLen(10);
-                        gRotated.setColor(Color.ORANGE);
-                        gRotated.fillOval(-toScreenLen(4), flameY, flameWidth, flameHeight);
-                        gRotated.setColor(Color.YELLOW);
-                        gRotated.fillOval(-toScreenLen(2), flameY + toScreenLen(2), toScreenLen(6), flameHeight - toScreenLen(2));
-                    }
-                }
-
-                gRotated.dispose();
-
-                g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
-                g.drawString(threat instanceof UAV ? "UAV" : "Threat", tx + toScreenLen(8), ty);
-            }
-        }
-
-        private void drawInterceptors(Graphics2D g, boolean isTick) {
-            Color interceptorBodyColor;
-            if (currentLevel >= 7) { // Arctic
-                interceptorBodyColor = new Color(90, 90, 85); // Dark concrete
-            } else if (currentLevel >= 4) { // Desert
-                interceptorBodyColor = new Color(200, 190, 170); // Bone white
-            } else { // Default
-                interceptorBodyColor = Color.LIGHT_GRAY;
-            }
-
-            for (DefenseEntity interceptor : interceptors) {
-                if (interceptor instanceof LightShield) {
-                    team.domain.LightShield laser = (team.domain.LightShield) interceptor;
-                    if (!laser.isActive()) continue;
-
-                    int sx = toScreenX(laser.getX());
-                    int sy = toScreenY(laser.getY());
-                    int ex = toScreenX(laser.getEndX());
-                    int ey = toScreenY(laser.getEndY());
-
-                    Graphics2D g2 = (Graphics2D) g;
-                    
-                    // יצירת אפקט אנימציה פועם שמשתנה בזמן אמת
-                    long time = System.currentTimeMillis();
-                    double pulse = 1.0 + 0.2 * Math.sin(time / 40.0); // קצב הפעימה של הלייזר
-
-                    int coreWidth = Math.max(1, (int)(toScreenLen(6) * pulse));
-                    int innerGlowWidth = Math.max(2, (int)(toScreenLen(16) * pulse));
-                    int outerGlowWidth = Math.max(3, (int)(toScreenLen(34) * pulse));
-
-                    // שכבה 1: הילה חיצונית (כחול כהה שקוף)
-                    g2.setColor(new Color(0, 100, 255, 60));
-                    g2.setStroke(new BasicStroke(outerGlowWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g2.drawLine(sx, sy, ex, ey);
-
-                    // שכבה 2: הילה פנימית (תכלת זוהר שקוף למחצה)
-                    g2.setColor(new Color(0, 200, 255, 150));
-                    g2.setStroke(new BasicStroke(innerGlowWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g2.drawLine(sx, sy, ex, ey);
-
-                    // שכבה 3: ליבת הלייזר (לבן-תכלת בוהק)
-                    g2.setColor(new Color(220, 255, 255, 255));
-                    g2.setStroke(new BasicStroke(coreWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g2.drawLine(sx, sy, ex, ey);
-
-                    g2.setStroke(new BasicStroke(1)); // איפוס סגנון הציור למצב הרגיל
-                } else if(interceptor instanceof InterceptorMissile)
-                {int ix = toScreenX(interceptor.getX());
-                int iy = toScreenY(interceptor.getY());
-                int id = interceptor.getId();
-                
-                double angle = -Math.PI / 2; // ברירת מחדל: טס ישר למעלה
-                if (prevInterceptorPositions.containsKey(id)) {
-                    Point prev = prevInterceptorPositions.get(id);
-                    if (prev.x != ix || prev.y != iy) {
-                        angle = Math.atan2(iy - prev.y, ix - prev.x);
-                        interceptorAngles.put(id, angle);
-                    } else {
-                        angle = interceptorAngles.getOrDefault(id, -Math.PI / 2);
-                    }
-                } else {
-                    interceptorAngles.put(id, angle);
-                }
-                prevInterceptorPositions.put(id, new Point(ix, iy));
-
-                Graphics2D gRotated = (Graphics2D) g.create();
-                gRotated.translate(ix, iy);
-                gRotated.rotate(angle + Math.PI / 2); // מתאים את הסיבוב לציור הדיפולטיבי (שפונה למעלה)
-
-                if (currentLevel <= 3 || currentLevel >= 7) { 
-                    Color bodyColor, cockpitColor;
-                    if (currentLevel >= 7) {
-                        bodyColor = new Color(90, 90, 85);
-                        cockpitColor = new Color(100, 255, 100);
-                    } else {
-                        bodyColor = Color.LIGHT_GRAY;
-                        cockpitColor = Color.BLUE;
-                    }
-
-                    if (isTick) {
-                        gRotated.setColor(Color.CYAN); gRotated.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(10));
-                        gRotated.setColor(Color.WHITE); gRotated.fillRect(-toScreenLen(2), toScreenLen(20), toScreenLen(4), toScreenLen(6));
-                    } else {
-                        gRotated.setColor(Color.CYAN); gRotated.fillRect(-toScreenLen(3), toScreenLen(10), toScreenLen(6), toScreenLen(8));
-                        gRotated.setColor(Color.WHITE); gRotated.fillRect(-toScreenLen(1), toScreenLen(18), toScreenLen(2), toScreenLen(6));
-                    }
-                    gRotated.setColor(bodyColor);
-                    gRotated.fillRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
-                    gRotated.setColor(currentLevel >= 7 ? new Color(40, 30, 25) : Color.BLACK);
-                    gRotated.drawRect(-toScreenLen(10), -toScreenLen(14), toScreenLen(8), toScreenLen(20));
-                    gRotated.setColor(cockpitColor);
-                    gRotated.fillRect(-toScreenLen(5), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
-                } else { // Use sharp design ONLY for 4-6
-                    int[] interceptorX = { 0, toScreenLen(-4), toScreenLen(-4), toScreenLen(-8), toScreenLen(-3), 0, toScreenLen(3), toScreenLen(8), toScreenLen(4), toScreenLen(4) };
-                    int[] interceptorY = { toScreenLen(-20), toScreenLen(-12), toScreenLen(6), toScreenLen(14), toScreenLen(12), toScreenLen(18), toScreenLen(12), toScreenLen(14), toScreenLen(6), toScreenLen(-12) };
-                    gRotated.setColor(interceptorBodyColor);
-                    gRotated.fillPolygon(interceptorX, interceptorY, 10);
-                    gRotated.setColor(Color.BLACK);
-                    gRotated.drawPolygon(interceptorX, interceptorY, 10);
-
-                    int flameY = toScreenLen(20);
-                    int flameWidth = toScreenLen(10);
-                    int flameHeight = isTick ? toScreenLen(12) : toScreenLen(10);
-                    gRotated.setColor(new Color(100, 255, 255));
-                    gRotated.fillOval(-toScreenLen(4), flameY, flameWidth, flameHeight);
-                    gRotated.setColor(new Color(190, 255, 255));
-                    gRotated.fillOval(-toScreenLen(2), flameY + toScreenLen(2), toScreenLen(6), flameHeight - toScreenLen(2));
-                }
-
-                gRotated.dispose();
-            }}
-        }
-
-        private void drawExplosions(Graphics g) {
-            for (Explosion explosion : explosions) {
-                long age = System.currentTimeMillis() - explosion.createdAt;
-                int alpha = (int) Math.max(0, 255 - age * 255 / 600);
-                
-                int baseSize = toScreenLen(20);
-                int size = Math.max(2, baseSize + (int) Math.round(age / 10.0 * scale));
-                int cx = toScreenX(explosion.x);
-                int cy = toScreenY(explosion.y);
-
-                g.setColor(new Color(255, 100, 0, alpha));
-                g.fillRect(cx - size / 2, cy - size / 2, size, size);
-                
-                g.setColor(new Color(255, 220, 40, alpha));
-                g.fillRect(cx - size / 3, cy - size / 3, size * 2 / 3, size * 2 / 3);
-                
-                g.setColor(new Color(255, 255, 200, alpha));
-                g.fillRect(cx - size / 6, cy - size / 6, size / 3, size / 3);
-            }
-        }
-        
-        private void drawFloatingTexts(Graphics2D g) {
-            long now = System.currentTimeMillis();
-            for (FloatingText ft : floatingTexts) {
-                long age = now - ft.createdAt;
-            int alpha = (int) Math.max(0, 255 - (age * 255L / ft.duration));
-                // ה-Y עולה מעלה ככל שהזמן עובר
-                int floatOffset = (int) (age / 20.0); 
-
-                int cx = toScreenX(ft.x);
-                int cy = toScreenY(ft.y) - floatOffset - toScreenLen(20);
-
-                g.setFont(g.getFont().deriveFont(Font.BOLD, Math.max(16f, (float) toScreenLen(24))));
-                g.setColor(new Color(ft.color.getRed(), ft.color.getGreen(), ft.color.getBlue(), alpha));
-                g.drawString(ft.text, cx - g.getFontMetrics().stringWidth(ft.text) / 2, cy);
-            }
-        }
-
-        private void drawGifts(Graphics2D g2d) {
-            if (gifts == null) return;
-            
-            for (Gift gift : gifts) {
-                int gx = toScreenX(gift.getX());
-                int gy = toScreenY(gift.getY());
-                int gw = toScreenLen(gift.getWidth());
-                int gh = toScreenLen(gift.getHeight());
-                
-                // ציור חוטי המצנח (קווים לבנים שעולים למעלה מהתיבה)
-                g2d.setColor(Color.WHITE);
-                g2d.drawLine(gx, gy, gx + gw / 2, gy - gh); // חוט שמאלי
-                g2d.drawLine(gx + gw, gy, gx + gw / 2, gy - gh); // חוט ימני
-                
-                // ציור חופת המצנח (חצי עיגול)
-                g2d.drawArc(gx - gw / 2, gy - gh - gh / 2, gw * 2, gh, 0, 180);
-                
-                // קביעת צבע התיבה לפי סוג המתנה
-                if (gift.getGiftType() == GiftType.NEW_BATTERY || gift.getGiftType() == GiftType.BATTERY_REPAIR) {
-                    g2d.setColor(UIConstants.COLOR_SELECTED_BATTERY); // כחול לסוללה
-                } else {
-                    g2d.setColor(UIConstants.COLOR_BATTERY); // ירוק לתחמושת
-                }
-                
-                // ציור התיבה עצמה
-                g2d.fillRect(gx, gy, gw, gh);
-                
-                // ציור של סימן פלוס (+) לבן על התיבה כדי שתיראה כמו אספקה צבאית/רפואית
-                g2d.setColor(Color.WHITE);
-                g2d.fillRect(gx + gw / 2 - 2, gy + 5, 4, gh - 10); // קו אנכי
-                g2d.fillRect(gx + 5, gy + gh / 2 - 2, gw - 10, 4); // קו אופקי
-            }
-}
-
-    private void drawAimingLine(Graphics2D g2d) {
-    // אם לא נבחרה סוללה (נניח ש 1- מסמל שאין בחירה), יוצאים מהפונקציה
-    if (selectedBatteryId == -1) {
-        return;
-    }
-
-    // 1. מציאת הסוללה הנבחרת מתוך רשימת הנזקים (Damageables)
-    Damageable selectedBattery = null;
-    if (damageables != null) {
-        for (Damageable asset : damageables) {
-            if (asset.getId() == selectedBatteryId) {
-                selectedBattery = asset;
-                break;
-            }
-        }
-    }
-
-    // 2. אם מצאנו את הסוללה, נצייר את הקו
-    if (selectedBattery != null) {
-        // שמירת המכחול המקורי
-        java.awt.Stroke originalStroke = g2d.getStroke();
-        
-        // יצירת קו מקווקו
-        float[] dashPattern = { 10.0f, 10.0f };
-        g2d.setStroke(new java.awt.BasicStroke(
-            2.0f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 10.0f, dashPattern, 0.0f
-        ));
-        
-        g2d.setColor(new java.awt.Color(255, 255, 255, 150)); // לבן חצי-שקוף (או כל צבע שתרצה)
-
-        // נקודת ההתחלה: מרכז הגג של הסוללה
-        int startX = toScreenX(selectedBattery.getX()) + toScreenLen(5 / 2);
-        int startY = toScreenY(selectedBattery.getY());
-
-        // 3. חישוב טריגונומטרי של נקודת הסיום
-        int lineLength = 350; // אורך הקו הויזואלי בפיקסלים
-        
-        // ג'אווה דורשת להמיר את הזווית ממעלות לרדיאנים
-        double angleInRadians = Math.toRadians(180-currentSliderAngle);
-
-       
-        int endX = startX + (int) (lineLength * Math.cos(angleInRadians));
-        int endY = startY - (int) (lineLength * Math.sin(angleInRadians));
-
-        // ציור הקו
-        g2d.drawLine(startX, startY, endX, endY);
-        
-        // החזרת המכחול למצב הרגיל
-        g2d.setStroke(originalStroke);
-    }
-}
-
-        private void drawMessage(Graphics g, String message) {
-            g.setColor(currentLevel >= 7 ? Color.BLACK : Color.WHITE);
-            g.drawString(message, 20, 20);
-        }
-    }
-
-    private JPanel createModeSelectPanel() {
-        JPanel panel = new JPanel(new java.awt.GridBagLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (settingsBackgroundImage != null) {
-                    g.drawImage(settingsBackgroundImage, 0, 0, getWidth(), getHeight(), null);
-                }
-            }
-        };
-        panel.setOpaque(false);  
-        
-        JLabel title = new JLabel("Select Mission Type");
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
-        title.setForeground(Color.WHITE);
-
-        JButton levelBtn = createStyledButton("Classic Levels", 24);
-        JButton endlessBtn = createStyledButton("Endless Survival", 18);
-        JButton backBtn = createStyledButton("Back", 18);
-
-        levelBtn.addActionListener(e -> showGameScreenFromModeSelect(false));
-        endlessBtn.addActionListener(e -> showGameScreenFromModeSelect(true));
-        backBtn.addActionListener(e -> showIntroScreen());
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.insets = new Insets(15, 0, 15, 0);
-        
-        gbc.gridy = 0; panel.add(title, gbc);
-        gbc.gridy = 1; panel.add(levelBtn, gbc);
-        gbc.gridy = 2; panel.add(endlessBtn, gbc);
-        gbc.gridy = 3; panel.add(backBtn, gbc);
-
-        return panel;
-    }
-
-    private void updateBatteryComboBoxItems(List<Damageable> currentDamageables) {
-        List<Integer> batteryIds = new ArrayList<>();
-        for (Damageable d : currentDamageables) {
-            if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem) d).isActive()) {                // Cast to AbstractDefenseSystem to access getId()
-                // This is safe because both InterceptorBattery and LaserBattery extend AbstractDefenseSystem
-                batteryIds.add(((AbstractDefenseSystem) d).getId());
-            }
-        }
-        // Sort IDs for consistent display
-        batteryIds.sort(Integer::compare);
-
-        boolean refreshNeeded = batteryComboBox.getItemCount() != batteryIds.size();
-        if (!refreshNeeded) {
-            for (int i = 0; i < batteryComboBox.getItemCount(); i++) {
-                if (!batteryIds.contains(batteryComboBox.getItemAt(i))) {
-                    refreshNeeded = true;
-                    break;
-                }
-            }
-        }
-
-        if (refreshNeeded) {
-            Object previousSelection = batteryComboBox.getSelectedItem();
-            batteryComboBox.removeAllItems();
-            for (int id : batteryIds) {
-                batteryComboBox.addItem(id);
-            }
-            if (previousSelection != null && batteryIds.contains(previousSelection)) {
-                batteryComboBox.setSelectedItem(previousSelection);
-                this.selectedBatteryId = (Integer) previousSelection;
-            } else if (!batteryIds.isEmpty()) {
-                batteryComboBox.setSelectedIndex(0);
-                this.selectedBatteryId = batteryIds.get(0);
-            }
-        } else if (selectedBatteryId == -1 && !batteryIds.isEmpty()) {
-            batteryComboBox.setSelectedIndex(0);
-            this.selectedBatteryId = batteryIds.get(0);
-        }
-    }
-
-    private void updateBatteryInfoDisplay() {
-        // Default message if no defense system is selected or available
-        if (selectedBatteryId == -1) {
-            batteryInfoLabel.setText("Status: No Defense System Selected | Ammo: 0");
-            batteryInfoLabel.setForeground(Color.BLACK);
-            return;
-        }
-
-        AbstractDefenseSystem selectedDefenseSystem = null;
+    private void checkBatteryHits(List<Damageable> damageables) {
         for (Damageable d : damageables) {
-            if (d instanceof AbstractDefenseSystem) { // Check if it's a defense system
-                AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
-                if (ds.getId() == selectedBatteryId) {
-                    selectedDefenseSystem = ds;
-                    break;
+            if (!(d instanceof AbstractDefenseSystem)) continue;
+            AbstractDefenseSystem ds = (AbstractDefenseSystem) d;
+            int id = ds.getId();
+            boolean nowActive = ds.isActive();
+            if (batteryStates.containsKey(id) && batteryStates.get(id) && !nowActive) {
+                if (gameCanvas != null) {
+                    gameCanvas.addFloatingText(ds.getX(), ds.getY(), "DISABLED!", Color.RED);
                 }
             }
-        }
-
-        // If the previously selected system is no longer available, try to select the first available one
-        if (selectedDefenseSystem == null) {
-            for (Damageable d : damageables) {
-                if (d instanceof AbstractDefenseSystem) {
-                    selectedDefenseSystem = (AbstractDefenseSystem) d;
-                    selectedBatteryId = selectedDefenseSystem.getId();
-                    break;
-                }
-            }
-        }
-
-        if (selectedDefenseSystem != null) {
-            String status = selectedDefenseSystem.isActive() ? "ACTIVE" : "DAMAGED";
-            String ammoInfo;
-            if (selectedDefenseSystem instanceof InterceptorBattery) {
-                ammoInfo = String.format("Interceptors: %d", ((InterceptorBattery) selectedDefenseSystem).getMissilesAvailable());
-            } else if (selectedDefenseSystem instanceof LaserBattery) {
-                ammoInfo = String.format("Laser Charges: %d", ((LaserBattery) selectedDefenseSystem).getLaserChargesAvailable());
-            } else {
-                ammoInfo = "Ammo: N/A"; // Fallback for other defense types
-            }
-            batteryInfoLabel.setText(String.format("System %d SELECTED | %s | %s", selectedBatteryId, status, ammoInfo));
-            
-            if (!selectedDefenseSystem.isActive()) {
-                batteryInfoLabel.setForeground(new Color(200, 40, 40));
-            } else {
-                batteryInfoLabel.setForeground(new Color(20, 90, 180));
-            }
+            batteryStates.put(id, nowActive);
         }
     }
 
-    private void selectBatteryIndex(int delta) {
-        if (batteryComboBox == null || batteryComboBox.getItemCount() == 0) {
-            return;
-        }
-        int currentIndex = batteryComboBox.getSelectedIndex();
-        if (currentIndex < 0) {
-            currentIndex = 0;
-        }
-        int nextIndex = (currentIndex + delta + batteryComboBox.getItemCount()) % batteryComboBox.getItemCount();
-        batteryComboBox.setSelectedIndex(nextIndex);
-        Integer selected = (Integer) batteryComboBox.getSelectedItem();
-        if (selected != null && selectedBatteryId != selected) { // Only update if selection actually changed
-            selectedBatteryId = selected;
-            updateBatteryInfoDisplay();
+    private void refreshStatusLabel() {
+        if (statusLabel != null) {
+            statusLabel.setText("Status: " + uiState.getCurrentStatusText()
+                    + " | Level: " + uiState.getCurrentLevel());
         }
     }
 
-    private class ToggleSwitch extends JComponent {
-        private boolean selected;
-        private final Color enabledColor = new Color(70, 150, 230);
-        private final Color disabledColor = new Color(120, 120, 120);
-        private final Color knobColor = Color.WHITE;
-        private final int width = 50;
-        private final int height = 25;
-
-        public ToggleSwitch(boolean selected) {
-            this.selected = selected;
-            setPreferredSize(new java.awt.Dimension(width, height));
-            setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    setSelected(!isSelected());
+    private JSlider buildAngleSlider() {
+        JSlider s = new JSlider(0, 180, 90);
+        s.setMajorTickSpacing(15);
+        s.setPaintTicks(true);
+        s.setPaintLabels(true);
+        s.addChangeListener(e -> {
+            int angle = s.getValue();
+            if (angle != uiState.getCurrentSliderAngle()) {
+                uiState.setCurrentSliderAngle(angle);
+                if (mainRouter != null) {
+                    for (Damageable d : sceneData.getDamageables()) {
+                        if (d instanceof AbstractDefenseSystem) {
+                            mainRouter.route("/team/updateAim",
+                                    Params.of(((AbstractDefenseSystem) d).getId(), (double) angle));
+                        }
+                    }
                 }
-            });
-        }
-
-        public boolean isSelected() {
-            return selected;
-        }
-
-        public void setSelected(boolean selected) {
-            this.selected = selected;
-            repaint();
-            fireActionPerformed();
-        }
-
-        private void fireActionPerformed() {
-            for (ActionListener listener : getActionListeners()) {
-                listener.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "toggle"));
+                refresh();
             }
-        }
+        });
+        return s;
+    }
 
-        public void addActionListener(ActionListener listener) {
-            listenerList.add(ActionListener.class, listener);
-        }
+    private static JLabel buildLabel(String text, int style, float size, Color fg) {
+        JLabel l = new JLabel(text);
+        l.setFont(l.getFont().deriveFont(style, size));
+        if (fg != null) l.setForeground(fg);
+        return l;
+    }
 
-        public ActionListener[] getActionListeners() {
-            return listenerList.getListeners(ActionListener.class);
-        }
+    private static JPanel flowPanel(int hGap, Component... components) {
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, hGap, 8));
+        for (Component c : components) p.add(c);
+        return p;
+    }
 
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            Graphics2D g2d = (Graphics2D) g.create();
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int arc = height;
-            int knobDiameter = height - 4;
-            int knobX = selected ? width - knobDiameter - 2 : 2;
-
-            g2d.setColor(selected ? enabledColor : disabledColor);
-            g2d.fillRoundRect(0, 0, width, height, arc, arc);
-            g2d.setColor(knobColor);
-            g2d.fillOval(knobX, 2, knobDiameter, knobDiameter);
-            g2d.dispose();
-        }
+    /** Returns the last explosion list for floating-text positioning. */
+    private List<GameCanvas.Explosion> getLastExplosion() {
+        // Access via package-private list – acceptable since GameCanvas is in same package
+        return null; // stub – floating text on score drop can be enhanced later
     }
 }

@@ -10,11 +10,21 @@ import base.Params;
 public class GameServer extends WebSocketServer {
     
     private final MainRouter router;
+    private static GameServer instance;
 
     public GameServer(MainRouter router, int port) {
         super(new InetSocketAddress(port));
         this.router = router;
+        instance = this;
     }
+    // פונקציה סטטית ש-TeamBackend יכול לקרוא לה כדי לשדר לכולם
+    public static void broadcastToAttacker(String message) {
+        if (instance != null) {
+            // הפונקציה broadcast קיימת מובנית ב-WebSocketServer ושולחת את הטקסט לכל הלקוחות
+            instance.broadcast(message);
+        }
+    }
+
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
