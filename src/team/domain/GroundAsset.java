@@ -9,6 +9,15 @@ public class GroundAsset extends IdentifiedObject implements Damageable {
     private final int width;
     private final int height;
     private final GameState gameState;
+    public GroundAsset() {
+        super(0);
+        this.name = "DefaultAsset";
+        this.x = 0;
+        this.y = 0;
+        this.width = 50;
+        this.height = 50;
+        this.gameState = null; // This should be set to a valid GameState in a real scenario 
+    }
 
     public GroundAsset(int id, String name, int x, int y, int width, int height, GameState gameState) {
         super(id);

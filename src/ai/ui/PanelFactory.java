@@ -23,7 +23,6 @@ public class PanelFactory {
 
     // References returned to callers for later mutation
     private JLabel   levelCompleteTitleLabel;
-    private JButton  multiplayerBtn;
     private JSpinner difficultySpinner;
 
     public PanelFactory(
@@ -43,7 +42,7 @@ public class PanelFactory {
     // ── Accessors for widgets created inside panels ───────────────────────────
 
     public JLabel   getLevelCompleteTitleLabel() { return levelCompleteTitleLabel; }
-    public JButton  getMultiplayerBtn()          { return multiplayerBtn; }
+
     public JSpinner getDifficultySpinner()       { return difficultySpinner; }
 
     // ── Panel builders ────────────────────────────────────────────────────────
@@ -57,14 +56,13 @@ public class PanelFactory {
 
         JButton playBtn     = WidgetFactory.createStyledButton("Play", 20);
         JButton settingsBtn = WidgetFactory.createStyledButton("Settings", 20);
-        multiplayerBtn      = WidgetFactory.createStyledButton("Multiplayer", 20);
-        multiplayerBtn.setVisible(false);
 
+
+        
         playBtn.addActionListener(e -> navigator.showModeSelect());
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_INTRO));
-        multiplayerBtn.addActionListener(e -> navigator.showLobby());
 
-        JPanel buttons = opaqueFlow(24, playBtn, settingsBtn, multiplayerBtn);
+        JPanel buttons = opaqueFlow(24, playBtn, settingsBtn);
 
         GridBagConstraints c = gbc(0, 0, new Insets(0, 0, 16, 0));
         panel.add(title, c);

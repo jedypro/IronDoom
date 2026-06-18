@@ -3,6 +3,9 @@ package team.domain;
 public class InterceptorBattery extends AbstractDefenseSystem implements Damageable {
     private int missilesAvailable = 120; // Default starting ammo
      public static final int POWER = 1200;
+     public InterceptorBattery() {
+        super(0, 0, 0); // Dummy constructor for AttackerUi (prevents compilation errors) 
+    }
     // Constructor
     public InterceptorBattery(int id, int x, int y, int inventory) {
         super(id, x, y);

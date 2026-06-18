@@ -2,11 +2,18 @@ package team.domain;
 
 public class UAV extends AbstractThreat {
     int difficultyLevel; // Default difficulty level, can be set from outside
+    
+    // בנאי דמה עבור ה-AttackerUi (מעביר ערכי 0 ל-super כדי למנוע את האדומים)
+    public UAV() {
+        super(0, 0, 0, 0, 0, 0, 0, 0, null);
+    }
+
     // Constructor
     public UAV(int id, int x, int y, int vx, int vy, int length, int height, int threatLevel, PoweredFlightStrategy poweredFlightStrategy, int difficultyLevel) {
         super(id, x, y, vx, vy, length, height, threatLevel, poweredFlightStrategy);
         this.difficultyLevel = difficultyLevel;
     }
+    
     //getters and setters
     public int getDifficultyLevel() {
         return difficultyLevel;

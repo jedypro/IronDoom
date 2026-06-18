@@ -11,6 +11,17 @@ public abstract class AbstractThreat extends IdentifiedObject{
     private int height;
     private int threatLevel;
     private MovementStrategy movementStrategy;
+    public AbstractThreat() {
+        super(0);
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.length = 0;
+        this.height = 0;
+        this.threatLevel = 0;
+        this.movementStrategy = null; // This should be set to a valid MovementStrategy in a real scenario 
+    }
     // Constructor
     public AbstractThreat(int id, int x, int y, int vx, int vy, int length, int height, int threatLevel, MovementStrategy movementStrategy) {
         super(id);

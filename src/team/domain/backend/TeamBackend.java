@@ -9,7 +9,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import db.ExcelDB;
 import db.ExcelTable;
 import my_base.App;
-import ai.ui.Images.newFiles.GameServer;
 import shared.ui_ports.TeamUiPort;
 import team.domain.*;
 
@@ -20,7 +19,6 @@ public class TeamBackend {
     private static final int EXIT_MARGIN = 350;
     private static final int DEFAULT_SCORE = 300;
 
-    private boolean attackerControlled = false;
 
     // --- רשימות ונתונים ---
     private final List<AbstractThreat> threats = new ArrayList<>();
@@ -140,22 +138,16 @@ public class TeamBackend {
         populationManager.update(timeStep, gameState.getGroundY(), damageables);
 
         // 2. הפעלת אירועים אקראיים (אם הוגרל)
-        // במולטיפלייר אנחנו מבטלים אירועים אקראיים כדי שהתחרות תהיה הוגנת (1 נגד 1)
-        if (!attackerControlled) {
-            eventSystem.maybeTrigger(timeStep, teamUiPort());
-        }
+        eventSystem.maybeTrigger(timeStep, teamUiPort());
 
         // 3. ייצור איומים וגלים (רק אם הזמן לא נגמר)
         if (!levelManager.isTimeUp(gameState.getLevel())) {
-            // הוספנו את התנאי: רק אם זה שחקן יחיד, המחשב מייצר איומים לבד
-            if (!attackerControlled) {
                 AbstractThreat newThreat = spawner.spawnThreat(timeStep / 2);
                 if (newThreat != null) {
                     threats.add(newThreat);
                 }
                 barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort());
                 barrageManager.checkBarrage(threats, teamUiPort());
-            }
         }
 
         // 4. התקדמות זמן השלב ובדיקת ניצחון
@@ -185,10 +177,6 @@ public class TeamBackend {
 
         // 7. עדכון מסך
         publishScene();
-        // 8. שידור מצב המשחק לתוקף דרך שרת הרשת!
-        if (attackerControlled) {
-            GameServer.broadcastToAttacker(serializeGameState());
-        }
     }
 
     // --- פונקציות עזר ורישום (נשארו כמעט ללא שינוי כי הן קשורות להגדרות המשחק) ---
@@ -378,92 +366,8 @@ public class TeamBackend {
         }
         return false;
     }
-    public void setAttackerControlled(boolean attackerControlled) {
-        this.attackerControlled = attackerControlled;
-    }
 
-    // פונקציה שמייצרת איום ישירות מהפקודה של התוקף ברשת
-    public void spawnThreatFromAttacker(String type, int x, double vy) {
-        // נייצר ID זמני (או מבוסס על זמן) כדי למנוע התנגשויות
-        int id = threats.size() + 10000; 
-        
-        AbstractThreat newThreat;
-        
-        if ("UAV".equalsIgnoreCase(type)) {
-            // יצירת כטב"מ - נתחיל אותו קצת יותר נמוך כדי שיהיה ריאליסטי וינוע למטרה אקראית
-            int startY = 50; 
-            int targetX = ThreadLocalRandom.current().nextInt(200, 1000); // מטרה אקראית למטה
-            double cruisingSpeed = 100.0 + (gameState.getLevel() * 25.0);
-            PoweredFlightStrategy strategy = new PoweredFlightStrategy(targetX, gameState.getGroundY(), cruisingSpeed);
-            newThreat = new UAV(id, x, startY, 0, 0, 20, 10, gameState.getLevel(), strategy, gameState.getLevel());
-        } else {
-            // ברירת מחדל: טיל בליסטי מהנקודה העליונה של המסך
-            MovementStrategy ballisticStrategy = new BallisticMovementStrategy();
-            // מהירות X אקראית קלה ימינה או שמאלה כדי שהטיל יעשה קשת יפה ולא יפול ישר למטה
-            int randomVx = ThreadLocalRandom.current().nextInt(-150, 150); 
-            newThreat = new BallisticMissile(
-                id, x, -50, randomVx, (int)vy, 12, 6, gameState.getLevel(), ballisticStrategy
-            );
-        }
-        
-        threats.add(newThreat);
-    }
 
-    // --- אריזת מצב המשחק (Serialization) ---
-    private String serializeGameState() {
-        StringBuilder sb = new StringBuilder("STATE");
-        
-        // נתוני מטא (שלב, ניקוד, האם המשחק ממשיך)
-        sb.append("|META,").append(gameState.getLevel()).append(",")
-          .append(gameState.getScore()).append(",")
-          .append(gameState.isStatus() ? 1 : 0);
-        
-        // איומים (T)
-        for (AbstractThreat t : threats) {
-            String typeName = (t instanceof UAV) ? "UAV" : "BallisticMissile";
-            sb.append("|T,").append(t.getId()).append(",").append(typeName).append(",").append(t.getX()).append(",").append(t.getY());
-        }
-        
-        // מיירטים (L = לייזר, I = טיל יירוט)
-        for (DefenseEntity i : activeInterceptors) {
-            if (i instanceof LightShield) {
-                LightShield ls = (LightShield) i;
-                sb.append("|L,").append(ls.getId()).append(",").append(ls.getX()).append(",").append(ls.getY())
-                  .append(",").append(ls.getEndX()).append(",").append(ls.getEndY());
-            } else {
-                sb.append("|I,").append(i.getId()).append(",").append(i.getX()).append(",").append(i.getY());
-            }
-        }
-        
-        // מבנים וסוללות (A = עיר/מפעל, B = סוללת טילים, LB = סוללת לייזר)
-        for (Damageable d : damageables) {
-            if (d instanceof GroundAsset) {
-                GroundAsset ga = (GroundAsset) d;
-                sb.append("|A,").append(ga.getId()).append(",").append(ga.getX()).append(",").append(ga.getY())
-                  .append(",").append(ga.getWidth()).append(",").append(ga.getHeight());
-            } else if (d instanceof InterceptorBattery || d instanceof LaserBattery) {
-                AbstractDefenseSystem batt = (AbstractDefenseSystem) d;
-                String type = (d instanceof LaserBattery) ? "LB" : "B";
-                sb.append("|").append(type).append(",").append(batt.getId()).append(",").append(batt.getX())
-                  .append(",").append(batt.getY()).append(",").append(batt.isActive() ? 1 : 0);
-            }
-        }
-        
-        // אזרחים (C)
-        for (Civilian c : populationManager.getCivilians()) {
-            sb.append("|C,").append(c.getId()).append(",").append((int)c.getX()).append(",")
-              .append((int)c.getY()).append(",").append(c.getState().name());
-        }
-
-        // מתנות (G)
-        for (Gift g : activeGifts) {
-            sb.append("|G,").append(g.getId()).append(",").append((int)g.getX()).append(",")
-              .append((int)g.getY()).append(",").append(g.getWidth()).append(",")
-              .append(g.getHeight()).append(",").append(g.getGiftType().name());
-        }
-        
-        return sb.toString();
-    }
 
     // --- Getters ---
     public java.util.List<AbstractThreat> getThreats() { return Collections.unmodifiableList(threats); }

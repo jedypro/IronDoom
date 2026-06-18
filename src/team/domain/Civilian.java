@@ -16,6 +16,9 @@ public class Civilian {
     private GroundAsset targetBuilding;
     private int direction; // 1 ימינה, 1- שמאלה
 
+    // בנאי דמה ריק לחלוטין עבור התוקף
+    public Civilian() {}
+
     public Civilian(int id, double startX, GroundAsset targetBuilding) {
         this.id = id;
         this.x = startX;
@@ -76,4 +79,4 @@ public class Civilian {
     public double getY() { return y; }
     public State getState() { return state; }
     public GroundAsset getTargetBuilding() { return targetBuilding; }
-}
+}   

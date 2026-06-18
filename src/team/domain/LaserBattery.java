@@ -8,6 +8,11 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
     public static final double LASER_DURATION_SECONDS = 2.0; // How long the laser stays visible
     private double currentAimAngle = 90.0; // ברירת מחדל למעלה
 
+    // בנאי דמה עבור ה-AttackerUi (מונע שגיאות קומפילציה)
+    public LaserBattery() {
+        super(0, 0, 0); 
+    }
+
     // Constructor
     public LaserBattery(int id, int x, int y, int inventory) {
         super(id, x, y);
@@ -70,6 +75,4 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
         this.isActive = true; // Reactivate the battery
         this.laserChargesAvailable = laserChargesAvailable + 30; // Repair adds 30 laser charges, can be adjusted as needed
     }
-  
-
 }

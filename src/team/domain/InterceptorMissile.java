@@ -12,6 +12,10 @@ public class InterceptorMissile extends IdentifiedObject implements DefenseEntit
     boolean active=true;
     int sourceBatteryId; // To track which battery launched this missile
 
+    public InterceptorMissile() {
+        super(0); // Default constructor for serialization or frameworks that require it
+    }
+
 
     // Constructor - initializes starting position and velocities
     public InterceptorMissile(double x, double y, double vx, double vy, int sourceBatteryId) {

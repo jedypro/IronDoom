@@ -17,8 +17,6 @@ public final class UIConstants {
     public static final String CARD_GAME_OVER      = "GAME_OVER";
     public static final String CARD_LEVEL_COMPLETE = "LEVEL_COMPLETE";
     public static final String CARD_MODE_SELECT    = "MODE_SELECT";
-    public static final String CARD_LOBBY          = "LOBBY";
-    public static final String CARD_ATTACKER       = "ATTACKER";
 
     // ── Window sizing ────────────────────────────────────────────────────────
     public static final int DEFAULT_MAX_WIDTH  = 1200;

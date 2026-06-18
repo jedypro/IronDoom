@@ -21,6 +21,7 @@ public abstract class TeamUiPort {
         if (instance == null) throw new IllegalStateException("TeamUiPort instance not set yet");
         return instance;
     }
+    
 
     // Your UI commands here, for example:
     public abstract void method1(int id);

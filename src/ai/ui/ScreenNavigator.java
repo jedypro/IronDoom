@@ -146,33 +146,7 @@ public class ScreenNavigator {
         cardLayout.show(rootPanel, UIConstants.CARD_MODE_SELECT);
     }
 
-    public void showLobby() {
-        uiState.setCurrentScreen(UIConstants.CARD_LOBBY);
-        uiState.setSettingsScreenActive(false);
-        uiState.setPaused(true);
 
-        route("/team/pause");
-        animation.pause();
-
-        if (pauseButton != null) pauseButton.setText("Resume");
-        updateStatus("Multiplayer Lobby");
-
-        cardLayout.show(rootPanel, UIConstants.CARD_LOBBY);
-    }
-
-    public void showAttacker() {
-        uiState.setCurrentScreen(UIConstants.CARD_ATTACKER);
-        uiState.setSettingsScreenActive(false);
-        uiState.setPaused(true); // המשחק המקומי של התוקף "מושהה" כי הוא רק שולט ברשת
-
-        route("/team/pause");
-        animation.pause();
-
-        if (pauseButton != null) pauseButton.setText("Resume");
-        updateStatus("Attacker Mode");
-
-        cardLayout.show(rootPanel, UIConstants.CARD_ATTACKER);
-    }
 
     // ── Pause / resume toggle (used by pauseButton and Space key) ────────────
 

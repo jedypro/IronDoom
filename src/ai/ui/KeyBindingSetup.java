@@ -28,7 +28,6 @@ import java.awt.event.KeyEvent;
  *   <li>V            – triple fire from all active batteries + screen shake</li>
  *   <li>A            – toggle aim line</li>
  *   <li>SPACE        – toggle pause / resume</li>
- *   <li>CTRL+SPACE   – reveal hidden multiplayer button</li>
  * </ul>
  */
 public class KeyBindingSetup {
@@ -42,7 +41,6 @@ public class KeyBindingSetup {
     private final GameCanvas     canvas;
     private final BatterySelector batterySelector;
     private final ScreenNavigator navigator;
-    private final JButton         multiplayerBtn;
     private final JPanel          introPanel;
     private       Timer           aimTimer;
 
@@ -56,7 +54,6 @@ public class KeyBindingSetup {
             GameCanvas      canvas,
             BatterySelector batterySelector,
             ScreenNavigator navigator,
-            JButton         multiplayerBtn,
             JPanel          introPanel) {
 
         this.contentPane     = contentPane;
@@ -68,7 +65,6 @@ public class KeyBindingSetup {
         this.canvas          = canvas;
         this.batterySelector = batterySelector;
         this.navigator       = navigator;
-        this.multiplayerBtn  = multiplayerBtn;
         this.introPanel      = introPanel;
     }
 
@@ -91,7 +87,6 @@ public class KeyBindingSetup {
         bindTripleFireAll(inputMap, actionMap);
         bindToggleAimLine(inputMap, actionMap);
         bindTogglePause(inputMap, actionMap);
-        bindShowMultiplayer(inputMap, actionMap);
 
         return aimTimer;
     }
@@ -219,19 +214,6 @@ public class KeyBindingSetup {
         }));
     }
 
-    private void bindShowMultiplayer(InputMap im, ActionMap am) {
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, InputEvent.CTRL_DOWN_MASK), "showMultiplayer");
-        am.put("showMultiplayer", action(e -> {
-            if (UIConstants.CARD_INTRO.equals(uiState.getCurrentScreen())
-                    && multiplayerBtn != null && !multiplayerBtn.isVisible()) {
-                multiplayerBtn.setVisible(true);
-                if (introPanel != null) {
-                    introPanel.revalidate();
-                    introPanel.repaint();
-                }
-            }
-        }));
-    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

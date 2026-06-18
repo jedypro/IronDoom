@@ -12,6 +12,10 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
     private LaserBattery source;
     private int sourceBatteryId; // To track which battery launched this missile
 
+    public LightShield() {
+        super(0); // Default constructor for serialization or frameworks that require it
+    }
+
     public LightShield(int id, LaserBattery source, double angle, double length, double duration, int sourceBatteryId) {
         super(id);
         this.source = source;

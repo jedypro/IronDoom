@@ -4,7 +4,6 @@ import base.Params;
 import base.SubRouter;
 import my_base.App;
 import team.domain.backend.TeamBackend;
-import ai.ui.Images.newFiles.GameServer;
 
 public class teamRouter implements SubRouter {
 
@@ -39,15 +38,7 @@ public class teamRouter implements SubRouter {
                 backend.launchDefense(defenseSystemId, angle, defenseType);
                 return null;
             }
-            case "/attacker/spawn": {
-                // מפענח את הנתונים שהגיעו מהתוקף דרך הרשת
-                String type = p.getString(0);
-                int x = p.getInt(1);
-                double vy = p.getDouble(2);
-                
-                backend.spawnThreatFromAttacker(type, x, vy);
-                return null;
-            }
+
             
             case "/updateAim": {
                 int defenseSystemId = p.getInt(0);
@@ -55,23 +46,7 @@ public class teamRouter implements SubRouter {
                 backend.updateAim(defenseSystemId, angle);
                 return null;
             }
-            case "/initMultiplayer": {
-                // 1. מעבירים את ה-Backend למצב שליטת תוקף
-                backend.setAttackerControlled(true);
-                
-                // 2. מפעילים את שרת ה-WebSocket (נממש אותו במלואו בשלב הבא)
-                 try {
-                    new GameServer(App.mainRouter(), 8080).start();
-                     System.out.println("[Network] GameServer is listening on port 8080...");
-                 } catch (Exception e) {
-                     e.printStackTrace();
-                 }
-                
-                // 3. מאפסים את המשחק כדי להתחיל שלב נקי מול התוקף ברשת
-                backend.resetGame();
-                backend.getGameState().setMode(true); // הגדרת מצב אינסוף אוטומטית למולטיפלייר
-                return null;
-            }
+            
 
             case "/reset":
                 backend.resetGame();
