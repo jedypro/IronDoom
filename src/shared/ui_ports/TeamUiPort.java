@@ -44,4 +44,9 @@ public abstract class TeamUiPort {
     //events
     public abstract void showGameEvent(String description, String result, boolean isGood);
 
+    public void showGiftCollected(String message) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'showGiftCollected'");
+    }
+
 }

@@ -136,9 +136,14 @@ public class TeamBackend {
         updateInterceptorPositions(timeStep);
         updateGiftPositions(timeStep);
         populationManager.update(timeStep, gameState.getGroundY(), damageables);
-
-        // 2. הפעלת אירועים אקראיים (אם הוגרל)
-        eventSystem.maybeTrigger(timeStep, teamUiPort());
+        int numActiveDefenses = 0;
+        for (Damageable d : damageables) {
+            if (d instanceof AbstractDefenseSystem && ((AbstractDefenseSystem)d).isActive()) {
+                numActiveDefenses++;
+            }
+        // only allow disabling batteries if there are at least 2 active defenses
+        eventSystem.maybeTrigger(timeStep, teamUiPort(), numActiveDefenses>=2);
+        }
 
         // 3. ייצור איומים וגלים (רק אם הזמן לא נגמר)
         if (!levelManager.isTimeUp(gameState.getLevel())) {

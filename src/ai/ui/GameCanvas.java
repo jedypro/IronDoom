@@ -121,7 +121,7 @@ public class GameCanvas extends JPanel implements ActionListener {
     // =========================================================================
     // Coordinate helpers
     // =========================================================================
-
+    
     private int toScreenX(double wx) { return offsetX + (int) Math.round(wx * scale); }
     private int toScreenY(double wy) { return offsetY + (int) Math.round(wy * scale); }
     private int toScreenLen(double wl) { return Math.max(1, (int) Math.round(wl * scale)); }

@@ -174,8 +174,6 @@ public class CollisionSystem {
                     applyGiftEffect(gift, interceptor, damageables, gameState, assetSpawner, uiPort);
 
                     // הפעלת אפקטים ויזואליים וניקוד של עצם האיסוף
-                    gameState.updateScore(25);
-                    uiPort.updateScore(gameState.getScore());
                     uiPort.triggerExplosion(
                         (int) ((gift.getX() + interceptor.getX()) / 2),
                         (int) ((gift.getY() + interceptor.getY()) / 2)
@@ -202,7 +200,7 @@ public class CollisionSystem {
             case NEW_BATTERY:
                 List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
                 damageables.add(newDefense.get(0));
-                uiPort.showGameEvent("Reinforcements!", "New Battery Deployed", true);
+                uiPort.showGiftCollected("Reinforcements!\nNew Battery Deployed");
                 break;
 
             case AMMO_REFILL:
@@ -213,12 +211,12 @@ public class CollisionSystem {
                     InterceptorBattery b = (InterceptorBattery) shooterSystem;
                     int numMissiles = 20 + random.nextInt(9) * 5;
                     b.setMissilesAvailable(b.getMissilesAvailable() + numMissiles);
-                    uiPort.showGameEvent("Ammo Secured!", "+" + numMissiles + " Missiles", true);
+                    uiPort.showGiftCollected("Ammo Secured!\n+" + numMissiles + " Missiles");
                 } else if (shooterSystem instanceof LaserBattery) {
                     LaserBattery b = (LaserBattery) shooterSystem;
                     int numCharges = 15 + random.nextInt(4) * 5; // מוסיף 15 עד 30 מטענים
                     b.setLaserChargesAvailable(b.getLaserChargesAvailable() + numCharges);
-                    uiPort.showGameEvent("Ammo Secured!", "+" + numCharges + " Laser Charges", true);
+                    uiPort.showGiftCollected("Ammo Secured!\n+" + numCharges + " Laser Charges" );
                 }
                 break;
 
@@ -228,7 +226,7 @@ public class CollisionSystem {
                         AbstractDefenseSystem defense = (AbstractDefenseSystem) d;
                         if (!defense.isActive()) {
                             defense.repair();
-                            uiPort.showGameEvent("Reinforcements!", "Battery repaired", true);
+                            uiPort.showGiftCollected("Reinforcements! \n Battery repaired");
                             break; 
                         }
                     }
@@ -239,7 +237,7 @@ public class CollisionSystem {
                 int score = (random.nextInt(2) + 2) * 100;
                 gameState.updateScore(score);
                 uiPort.updateScore(gameState.getScore());
-                uiPort.showGameEvent("Reinforcements!", score + " points added", true);
+                uiPort.showGiftCollected("Reinforcements!\n" + score + " points added");
                 break;
         }
     }

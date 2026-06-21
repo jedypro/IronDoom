@@ -110,4 +110,8 @@ public class TeamUiPortImpl extends TeamUiPort {
     public void showGameEvent(String description, String result, boolean isGood) {
         SwingUtilities.invokeLater(() -> ui.showEvent(description, isGood, result));
     }
+    @Override
+    public void showGiftCollected(String message) {
+        SwingUtilities.invokeLater(() -> ui.showGiftCollected(message));
+    }
 }

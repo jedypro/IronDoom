@@ -24,6 +24,7 @@ public class PanelFactory {
     // References returned to callers for later mutation
     private JLabel   levelCompleteTitleLabel;
     private JSpinner difficultySpinner;
+    private boolean  lastModeEndless = false;
 
     public PanelFactory(
             ImageLoader     imageLoader,
@@ -82,7 +83,11 @@ public class PanelFactory {
         JButton exit      = new JButton("Exit");
 
         playAgain.addActionListener(e -> {
-            if (mainRouter != null) mainRouter.route("/team/reset", Params.of());
+            if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
+                mainRouter.route("/team/setMode", Params.of(lastModeEndless));
+            }
+
             navigator.showGame();
         });
         exit.addActionListener(e -> System.exit(0));
@@ -180,9 +185,15 @@ public class PanelFactory {
         JButton endlessBtn = WidgetFactory.createStyledButton("Endless Survival", 18);
         JButton backBtn    = WidgetFactory.createStyledButton("Back",             18);
 
-        levelBtn.addActionListener(e   -> navigator.showGameFromModeSelect(false));
-        endlessBtn.addActionListener(e -> navigator.showGameFromModeSelect(true));
-        backBtn.addActionListener(e    -> navigator.showIntro());
+        levelBtn.addActionListener(e -> {
+            lastModeEndless = false;
+            navigator.showGameFromModeSelect(false);
+        });
+        endlessBtn.addActionListener(e -> {
+            lastModeEndless = true;
+            navigator.showGameFromModeSelect(true);
+        });
+        backBtn.addActionListener(e -> navigator.showIntro());
 
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = 0;

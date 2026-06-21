@@ -1,0 +1,180 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+hide members
+
+class AttackerUi
+interface CommandTransport
+class GameServer
+class NetworkTransport
+class TeamUiPortImpl
+class Ui
+class UIConstants
+class Explosion
+class FloatingText
+class GameCanvas
+class ToggleSwitch
+class AudioPlayer
+abstract class IdentifiedObject
+class Params
+abstract class PeriodicLoop
+class PeriodicScheduler
+interface SubRouter
+class ExcelDB
+class ExcelTable
+class App
+class AppContent
+class MyPeriodicLoop
+class MainRouter
+class teamRouter
+abstract class TeamUiPort
+abstract class AbstractDefenseSystem
+abstract class AbstractThreat
+interface AssetCreator
+class AssetSpawner
+class RegisteredCreator
+class BarrageManager
+class CollisionSystem
+class GameLogger
+class LevelManager
+class RandomEventSystem
+class TeamBackend
+class BallisticMissile
+class BallisticMovementStrategy
+class BallisticTargetingParams
+class Civilian
+interface Damageable
+interface DefenseEntity
+interface EventAction
+class GameState
+class Gift
+class GiftSpawner
+class GroundAsset
+class InterceptorBattery
+class InterceptorMissile
+class LaserBattery
+class LaserTargetingParams
+class LightShield
+interface MovementStrategy
+class ParachuteStrategy
+class PopulationManager
+class PoweredFlightStrategy
+interface TargetingParams
+interface ThreatCreator
+class ThreatSpawner
+class UAV
+class WavyMovementStrategy
+
+AttackerUi *-- CommandTransport
+GameServer *-- MainRouter
+NetworkTransport ..|> CommandTransport
+TeamUiPortImpl --|> TeamUiPort
+TeamUiPortImpl *-- Ui
+Ui *-- MainRouter
+Ui *-- TeamUiPortImpl
+Ui *-- GameCanvas
+Ui o-- AbstractThreat
+Ui o-- Damageable
+Ui o-- DefenseEntity
+Ui o-- Gift
+Ui o-- Civilian
+Ui *-- GameState
+GameCanvas o-- Explosion
+GameCanvas o-- FloatingText
+Params ..> Params
+PeriodicScheduler *-- PeriodicLoop
+SubRouter ..> Params
+ExcelDB *-- ExcelDB
+ExcelDB o-- ExcelTable
+App *-- MainRouter
+App *-- Ui
+App *-- AppContent
+App *-- MyPeriodicLoop
+AppContent *-- TeamBackend
+MyPeriodicLoop --|> PeriodicLoop
+MainRouter o-- SubRouter
+MainRouter ..> Params
+teamRouter ..|> SubRouter
+teamRouter *-- TeamBackend
+teamRouter ..> Params
+TeamUiPort *-- TeamUiPort
+AbstractDefenseSystem --|> IdentifiedObject
+AbstractDefenseSystem ..> TargetingParams
+AbstractDefenseSystem ..> DefenseEntity
+AbstractThreat --|> IdentifiedObject
+AbstractThreat *-- MovementStrategy
+AssetCreator ..> Damageable
+AssetSpawner o-- AssetCreator
+AssetSpawner o-- RegisteredCreator
+RegisteredCreator --> AssetCreator
+BarrageManager ..> GameState
+BarrageManager ..> ThreatSpawner
+BarrageManager ..> GiftSpawner
+BarrageManager ..> TeamUiPort
+CollisionSystem ..> GameState
+CollisionSystem ..> PopulationManager
+CollisionSystem ..> AssetSpawner
+CollisionSystem ..> TeamUiPort
+CollisionSystem ..> Gift
+CollisionSystem ..> DefenseEntity
+CollisionSystem ..> AbstractDefenseSystem
+LevelManager ..> GameState
+LevelManager ..> TeamUiPort
+RandomEventSystem o-- EventAction
+RandomEventSystem ..> GameState
+RandomEventSystem ..> ThreatSpawner
+RandomEventSystem ..> TeamUiPort
+TeamBackend o-- AbstractThreat
+TeamBackend o-- DefenseEntity
+TeamBackend o-- Damageable
+TeamBackend o-- Gift
+TeamBackend *-- GameState
+TeamBackend *-- ThreatSpawner
+TeamBackend *-- AssetSpawner
+TeamBackend *-- PopulationManager
+TeamBackend *-- GiftSpawner
+TeamBackend *-- LevelManager
+TeamBackend *-- BarrageManager
+TeamBackend *-- CollisionSystem
+TeamBackend *-- RandomEventSystem
+TeamBackend ..> TeamUiPort
+TeamBackend ..> AbstractDefenseSystem
+BallisticMissile --|> AbstractThreat
+BallisticMissile ..> MovementStrategy
+BallisticMovementStrategy ..|> MovementStrategy
+BallisticTargetingParams ..|> TargetingParams
+Civilian *-- GroundAsset
+Gift *-- MovementStrategy
+GiftSpawner ..> Gift
+GroundAsset --|> IdentifiedObject
+GroundAsset ..|> Damageable
+GroundAsset *-- GameState
+InterceptorBattery --|> AbstractDefenseSystem
+InterceptorBattery ..|> Damageable
+InterceptorBattery ..> TargetingParams
+InterceptorBattery ..> DefenseEntity
+InterceptorMissile --|> IdentifiedObject
+InterceptorMissile ..|> DefenseEntity
+InterceptorMissile *-- MovementStrategy
+LaserBattery --|> AbstractDefenseSystem
+LaserBattery ..|> Damageable
+LaserBattery ..> TargetingParams
+LaserBattery ..> DefenseEntity
+LaserTargetingParams ..|> TargetingParams
+LightShield --|> IdentifiedObject
+LightShield ..|> DefenseEntity
+LightShield *-- LaserBattery
+LightShield ..> AbstractThreat
+LightShield ..> Gift
+ParachuteStrategy ..|> MovementStrategy
+PopulationManager o-- Civilian
+PopulationManager ..> GroundAsset
+PoweredFlightStrategy ..|> MovementStrategy
+ThreatCreator ..> AbstractThreat
+ThreatSpawner o-- ThreatCreator
+ThreatSpawner *-- GameState
+ThreatSpawner ..> AbstractThreat
+UAV --|> AbstractThreat
+UAV ..> PoweredFlightStrategy
+WavyMovementStrategy ..|> MovementStrategy
+@enduml

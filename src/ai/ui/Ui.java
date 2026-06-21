@@ -7,6 +7,9 @@ import team.domain.*;
 
 
 import javax.swing.*;
+
+import ai.ui.GameCanvas.Explosion;
+
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +68,7 @@ public class Ui {
 
     // ── Battery hit tracking ──────────────────────────────────────────────────
     private final Map<Integer, Boolean> batteryStates = new HashMap<>();
+    private final java.util.List<Point> recentExplosionPoints = new java.util.ArrayList<>();
 
     // ── Startup synchronization ───────────────────────────────────────────────
     private final CountDownLatch startupComplete = new CountDownLatch(1);
@@ -215,13 +219,25 @@ public class Ui {
 
     public void updateScore(int score) {
         int last = uiState.getLastScore();
-        if (last != -1 && score < last) {
-            int diff = score - last;
-            List<GameCanvas.Explosion> explosions = gameCanvas != null ? getLastExplosion() : null;
-            if (explosions != null) {
-                // floating text near last explosion
+        if (last != -1 && score < last && gameCanvas != null) {
+            int diff = last - score;
+            Point hitPoint = null;
+            if (!recentExplosionPoints.isEmpty()) {
+                hitPoint = recentExplosionPoints.remove(recentExplosionPoints.size() - 1);
             }
+            final Point targetPoint = hitPoint;
+            final String floatingText = "-" + diff;
+            SwingUtilities.invokeLater(() -> {
+                if (gameCanvas != null) {
+                    if (targetPoint != null) {
+                        gameCanvas.addFloatingText(targetPoint.x, targetPoint.y, floatingText, Color.RED, 2000);
+                    } else {
+                        gameCanvas.addFloatingText(600, 200, floatingText, Color.RED, 2000);
+                    }
+                }
+            });
         }
+
         uiState.setLastScore(score);
         if (scoreLabel != null) {
             SwingUtilities.invokeLater(() -> scoreLabel.setText("Score: " + score));
@@ -255,11 +271,36 @@ public class Ui {
             navigator.showLevelComplete();
         });
     }
-
+    public void showGiftCollected(String message) {
+        gameCanvas.addFloatingText(600, 200, message , Color.GREEN, 3000);
+    }
     public void showEvent(String description, boolean isGood, String result) {
+        navigator.togglePause();
+        showStatus("paused");
         if (gameCanvas == null) return;
-        Color color = isGood ? new Color(100, 255, 100) : new Color(255, 100, 100);
-        gameCanvas.addFloatingText(600, 200, description + " | " + result, color, 3000);
+        
+        // 2. Create a custom panel for the dialog for better styling.
+        JPanel messagePanel = new JPanel(new BorderLayout(10, 10));
+        messagePanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // The description is in Hebrew. Using HTML for styling and alignment.
+        JLabel descriptionLabel = new JLabel("<html><div style='text-align: center; width: 300px;'>" + description + "</div></html>");
+        descriptionLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        descriptionLabel.setForeground(isGood ? new Color(34, 139, 34) : new Color(178, 34, 34));
+        messagePanel.add(descriptionLabel, BorderLayout.NORTH);
+
+        JLabel resultLabel = new JLabel("<html><div style='text-align: center; width: 300px;'><b>Effect:</b> " + result + "</div></html>");
+        resultLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        messagePanel.add(resultLabel, BorderLayout.CENTER);
+
+        String title = isGood ? "Good News!" : "Bad News!";
+        int messageType = isGood ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE;
+
+        // Show the modal dialog. This blocks until the user clicks "OK".
+        JOptionPane.showMessageDialog(frame, messagePanel, title, messageType);
+        navigator.togglePause();
+        showStatus("running"); 
+        
     }
 
     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,
@@ -299,7 +340,10 @@ public class Ui {
     }
 
     public void triggerExplosionEffect(int x, int y) {
-        if (gameCanvas != null) gameCanvas.addExplosion(x, y);
+        if (gameCanvas != null) {
+            recentExplosionPoints.add(new Point(x, y));
+            gameCanvas.addExplosion(x, y);
+        }
     }
 
     public void refresh() {
@@ -385,9 +429,4 @@ public class Ui {
         return p;
     }
 
-    /** Returns the last explosion list for floating-text positioning. */
-    private List<GameCanvas.Explosion> getLastExplosion() {
-        // Access via package-private list – acceptable since GameCanvas is in same package
-        return null; // stub – floating text on score drop can be enhanced later
-    }
 }

@@ -28,6 +28,7 @@ public class UiState {
 
     // ── Sound ────────────────────────────────────────────────────────────────
     private boolean soundEnabled = true;
+    private boolean isEndlessMode = false;
 
     // =========================================================================
     // Getters / setters
@@ -68,4 +69,7 @@ public class UiState {
 
     public boolean isSoundEnabled() { return soundEnabled; }
     public void    setSoundEnabled(boolean b) { soundEnabled = b; }
+
+    public boolean isEndlessMode() { return isEndlessMode; }
+    public void setMode(boolean isEndlessMode) { this.isEndlessMode = isEndlessMode; }
 }
