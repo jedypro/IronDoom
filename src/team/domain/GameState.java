@@ -3,6 +3,12 @@ package team.domain;
 public class GameState {
     private static final int DEFAULT_GROUND_Y = 730;
 
+    /** Exposes the canonical ground level so other layers (e.g. the renderer)
+     *  never have to guess/duplicate this value. */
+    public static int getDefaultGroundY() {
+        return DEFAULT_GROUND_Y;
+    }
+
     private int score;
     private int level;
     private boolean status;

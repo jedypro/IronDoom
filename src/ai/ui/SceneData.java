@@ -24,18 +24,26 @@ public class SceneData {
     private volatile List<Gift>            gifts        = Collections.emptyList();
     private volatile List<Civilian>        civilians    = Collections.emptyList();
 
+    // Ground level as computed by the backend (team.domain.GameState) - the
+    // renderer must never infer/guess this on its own. Defaulted to the
+    // domain's own constant only as a placeholder before the first real
+    // snapshot arrives.
+    private volatile int groundY = team.domain.GameState.getDefaultGroundY();
+
     // ── Update (called from game-update thread, not EDT) ─────────────────────
 
     public synchronized void update(
             List<AbstractThreat>  threats,
             List<Damageable>      damageables,
             List<DefenseEntity>   interceptors,
-            List<Gift>            gifts) {
+            List<Gift>            gifts,
+            int                   groundY) {
 
         this.threats      = new ArrayList<>(threats);
         this.damageables  = new ArrayList<>(damageables);
         this.interceptors = new ArrayList<>(interceptors);
         this.gifts        = new ArrayList<>(gifts);
+        this.groundY      = groundY;
     }
 
     public synchronized void setCivilians(List<Civilian> civilians) {
@@ -49,4 +57,5 @@ public class SceneData {
     public List<DefenseEntity>  getInterceptors() { return interceptors; }
     public List<Gift>           getGifts()        { return gifts; }
     public List<Civilian>       getCivilians()    { return civilians; }
+    public int                  getGroundY()       { return groundY; }
 }

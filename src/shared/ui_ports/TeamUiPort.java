@@ -30,7 +30,7 @@ public abstract class TeamUiPort {
     public abstract void triggerExplosion(int x, int y);
     public abstract void updateScore(int score);
     public abstract void updateLevel(int level);
-    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors, java.util.List<team.domain.Gift> gifts, int score, boolean running);
+    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors, java.util.List<team.domain.Gift> gifts, int score, boolean running, int groundY);
     public abstract void showWarning(String message);
     public abstract void showLevelComplete(String message);
     public abstract void displayCivilians(java.util.List<team.domain.Civilian> civilians);

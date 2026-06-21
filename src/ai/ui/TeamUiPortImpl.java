@@ -62,8 +62,8 @@ public class TeamUiPortImpl extends TeamUiPort {
     }
 
     @Override
-    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<DefenseEntity> interceptors, List<Gift> gifts, int score, boolean running) {
-        SwingUtilities.invokeLater(() -> ui.setScene(threats, damageables, interceptors, gifts, score, running));
+    public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<DefenseEntity> interceptors, List<Gift> gifts, int score, boolean running, int groundY) {
+        SwingUtilities.invokeLater(() -> ui.setScene(threats, damageables, interceptors, gifts, score, running, groundY));
     }
 
     @Override

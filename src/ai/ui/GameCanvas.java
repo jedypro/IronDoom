@@ -157,7 +157,7 @@ public class GameCanvas extends JPanel implements ActionListener {
         }
 
         boolean tick = (System.currentTimeMillis() / 100) % 2 == 0;
-        int groundY  = computeGroundY(dmg);
+        int groundY  = sceneData.getGroundY();
 
         drawBackground(g2d, groundY);
         drawGroundAssets(g2d, groundY, tick);
@@ -173,23 +173,20 @@ public class GameCanvas extends JPanel implements ActionListener {
     }
 
     // =========================================================================
-    // Ground Y computation
+    // Ground Y
     // =========================================================================
-
-    private int computeGroundY(List<Damageable> damageables) {
-        int groundY = sceneData.getDamageables().isEmpty()
-                ? 650
-                : 650; // fallback; normally comes from GameState
-
-        // Use tallest GroundAsset bottom edge
-        for (Damageable d : damageables) {
-            if (d instanceof GroundAsset) {
-                GroundAsset a = (GroundAsset) d;
-                groundY = Math.max(groundY, a.getY() + a.getHeight());
-            }
-        }
-        return groundY;
-    }
+    //
+    // groundY is no longer inferred here. It used to be guessed from the
+    // tallest GroundAsset's bottom edge, with a hardcoded fallback (650) used
+    // whenever no GroundAsset happened to be present - that fallback didn't
+    // match GameState's real ground Y (730). At higher levels, when the map
+    // gets crowded and no GroundAsset manages to spawn, that mismatch made the
+    // drawn ground sit ~80px too high while threats/explosions still resolved
+    // against the true ground, making them appear to originate or explode
+    // "inside" the ground. groundY now comes straight from SceneData, which
+    // the backend populates every frame via the TeamUiPort - the renderer
+    // stays a pure consumer of that snapshot and never touches team.domain
+    // directly to compute it.
 
     // =========================================================================
     // Background

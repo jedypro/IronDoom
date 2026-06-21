@@ -259,7 +259,7 @@ public class TeamBackend {
 
     private void publishScene() {
         teamUiPort().updateLevel(gameState.getLevel());
-        teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), getGifts(), gameState.getScore(), gameState.isStatus());
+        teamUiPort().displayScene(getThreats(), getDamageables(), getInterceptors(), getGifts(), gameState.getScore(), gameState.isStatus(), gameState.getGroundY());
         teamUiPort().displayCivilians(populationManager.getCivilians());
     }
 
