@@ -155,6 +155,7 @@ public class CollisionSystem {
                 DefenseEntity interceptor = interceptorIterator.next();
 
                 if (!interceptor.isActive()) {
+                    interceptorIterator.remove(); 
                     continue;
                 }
 
@@ -198,10 +199,15 @@ public class CollisionSystem {
                                  GameState gameState, AssetSpawner assetSpawner, TeamUiPort uiPort) {
         switch (gift.getGiftType()) {
             case NEW_BATTERY:
-                List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
-                damageables.add(newDefense.get(0));
-                uiPort.showGiftCollected("Reinforcements!\nNew Battery Deployed");
-                break;
+                    List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
+                    if (!newDefense.isEmpty()) {
+                        damageables.add(newDefense.get(0));
+                        uiPort.showGiftCollected("Reinforcements!\nNew Battery Deployed");
+                    } else {
+                        // אין מקום — אפשר לתת פיצוי אחר
+                        uiPort.showGiftCollected("No space for new battery!\nBonus ammo instead");
+                    }
+                    break;
 
             case AMMO_REFILL:
                 int sourceId = interceptor.getSourceBatteryId();
