@@ -25,16 +25,16 @@ public class GiftSpawner {
 
         // 3. Initialize the movement strategy (Parachute) for a controlled, swaying descent
         MovementStrategy parachute = new ParachuteStrategy();
+        double rand = random.nextDouble();
         if(includeRepairType) {
             // 4. Determine the gift type with a 20% chance for a new battery, 50% for ammo refill, and 30% for repair
-            GiftType type = (random.nextDouble() < 0.1) ? GiftType.NEW_BATTERY : 
-                            (random.nextDouble() < 0.2) ? GiftType.AMMO_REFILL :
-                            (random.nextDouble() < 0.33) ? GiftType.ADD_SCORE : GiftType.BATTERY_REPAIR;
+            GiftType type = (rand < 0.3) ? GiftType.NEW_BATTERY : 
+                            (rand < 0.7) ? GiftType.AMMO_REFILL : GiftType.BATTERY_REPAIR;
             return new Gift(currentId, randomX, 0, parachute, type);
         }
         else {
         // 4. Determine the gift type
-        GiftType type = (random.nextDouble() < 0.3) ? GiftType.NEW_BATTERY : (random.nextDouble() < 0.9) ? GiftType.AMMO_REFILL : GiftType.ADD_SCORE;
+        GiftType type = (rand< 0.3) ? GiftType.NEW_BATTERY :  GiftType.AMMO_REFILL;
         return new Gift(currentId, randomX, 0, parachute, type);
     
     }

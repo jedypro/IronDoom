@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
+import ai.ui.KeyBindingSetup;
 
 /**
  * Entry point and top-level orchestrator of the game UI.
@@ -56,6 +57,7 @@ public class Ui {
     private GameCanvas         gameCanvas;
     private ScreenNavigator    navigator;
     private BatterySelector    batterySelector;
+    private Timer aimTimer;
 
     // ── Swing widgets owned at this level ─────────────────────────────────────
     private JFrame  frame;
@@ -199,7 +201,7 @@ public class Ui {
                 uiState, sceneData, mainRouter, angleSlider,
                 fireButton, gameCanvas, batterySelector, navigator,
                 introPanel);
-        Timer aimTimer = keys.setup();
+        this.aimTimer = keys.setup();
         animation.setAimTimer(aimTimer);
 
         frame.pack();
@@ -298,6 +300,19 @@ public class Ui {
 
         // Show the modal dialog. This blocks until the user clicks "OK".
         JOptionPane.showMessageDialog(frame, messagePanel, title, messageType);
+        
+       try {
+            if (uiState != null) {
+                uiState.setAimDirection(0); // Reset direction
+            }
+            if (aimTimer != null && aimTimer.isRunning()) {
+                aimTimer.stop(); // Halt the timer
+            }
+            System.out.println("[INFO] Aiming state successfully reset after event dialog.");
+        } catch (Exception e) {
+            System.err.println("[ERROR] Failed to reset aiming state: " + e.getMessage());
+        }
+
         navigator.togglePause();
         showStatus("running"); 
         

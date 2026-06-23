@@ -26,13 +26,13 @@ public class CollisionSystem {
                                 TeamUiPort uiPort) {
         
         try {
-            GameLogger.log("CollisionSystem", "--> Starting checkThreatCollisions");
+            //GameLogger.log("CollisionSystem", "--> Starting checkThreatCollisions");
             checkThreatCollisions(timeStep, threats, damageables, interceptors, gameState, populationManager, uiPort);
             
-            GameLogger.log("CollisionSystem", "--> Starting checkGiftCollisions");
+            //GameLogger.log("CollisionSystem", "--> Starting checkGiftCollisions");
             checkGiftCollisions(gifts, interceptors, damageables, gameState, assetSpawner, uiPort);
             
-            GameLogger.log("CollisionSystem", "<-- Finished checkCollisions successfully");
+            //GameLogger.log("CollisionSystem", "<-- Finished checkCollisions successfully");
         } catch (Exception e) {
             GameLogger.log("CollisionSystem", "!!! CRITICAL CRASH in CollisionSystem: " + e.getClass().getSimpleName() + " !!!");
             e.printStackTrace(); // מדפיס את השגיאה המדויקת והשורה בה היא קרתה
@@ -199,26 +199,25 @@ public class CollisionSystem {
         switch (gift.getGiftType()) {
             case NEW_BATTERY:
                 List<Damageable> newDefense = assetSpawner.spawnDefenseSystems(gameState.getLevel(), gameState.getGroundY());
-                damageables.add(newDefense.get(0));
-                uiPort.showGiftCollected("Reinforcements!\nNew Battery Deployed");
+                // Check if a battery was successfully created
+                if (!newDefense.isEmpty()) {
+                    // Safely add exactly one battery as requested
+                    damageables.add(newDefense.get(0));
+                    uiPort.showGiftCollected("Reinforcements!\nNew Battery Deployed");
+                    System.out.println("[INFO] New battery successfully deployed from gift.");
+                    break; 
+                }
+                
+                // Log capacity limit and fall back to ammo refill
+                System.out.println("[WARN] Screen full for new battery. Triggering ammo refill fallback.");
+                executeAmmoRefill(interceptor, uiPort, damageables);
                 break;
 
             case AMMO_REFILL:
-                int sourceId = interceptor.getSourceBatteryId();
-                AbstractDefenseSystem shooterSystem = findDefenseSystemById(sourceId, damageables);
-                
-                if (shooterSystem instanceof InterceptorBattery) {
-                    InterceptorBattery b = (InterceptorBattery) shooterSystem;
-                    int numMissiles = 20 + random.nextInt(9) * 5;
-                    b.setMissilesAvailable(b.getMissilesAvailable() + numMissiles);
-                    uiPort.showGiftCollected("Ammo Secured!\n+" + numMissiles + " Missiles");
-                } else if (shooterSystem instanceof LaserBattery) {
-                    LaserBattery b = (LaserBattery) shooterSystem;
-                    int numCharges = 15 + random.nextInt(4) * 5; // מוסיף 15 עד 30 מטענים
-                    b.setLaserChargesAvailable(b.getLaserChargesAvailable() + numCharges);
-                    uiPort.showGiftCollected("Ammo Secured!\n+" + numCharges + " Laser Charges" );
-                }
+            {
+                executeAmmoRefill(interceptor, uiPort, damageables);
                 break;
+            }
 
             case BATTERY_REPAIR:
                 for (Damageable d : damageables) {
@@ -232,15 +231,37 @@ public class CollisionSystem {
                     }
                 }
                 break;
-
-            case ADD_SCORE:
-                int score = (random.nextInt(2) + 2) * 100;
-                gameState.updateScore(score);
-                uiPort.updateScore(gameState.getScore());
-                uiPort.showGiftCollected("Reinforcements!\n" + score + " points added");
-                break;
         }
     }
+
+    private void executeAmmoRefill(DefenseEntity interceptor, TeamUiPort uiPort, List<Damageable> damageables) {
+    try {
+        if (interceptor == null) {
+            System.err.println("[ERROR] Cannot refill ammo: interceptor reference is null.");
+            return;
+        }
+
+        int sourceId = interceptor.getSourceBatteryId();
+        AbstractDefenseSystem shooterSystem = findDefenseSystemById(sourceId, damageables);
+        
+        if (shooterSystem instanceof InterceptorBattery) {
+            InterceptorBattery b = (InterceptorBattery) shooterSystem;
+            int numMissiles = 20 + random.nextInt(9) * 5;
+            b.setMissilesAvailable(b.getMissilesAvailable() + numMissiles);
+            uiPort.showGiftCollected("Ammo Secured!\n+" + numMissiles + " Missiles");
+            System.out.println("[INFO] Interceptor battery " + sourceId + " refilled with " + numMissiles + " missiles.");
+            
+        } else if (shooterSystem instanceof LaserBattery) {
+            LaserBattery b = (LaserBattery) shooterSystem;
+            int numCharges = 15 + random.nextInt(4) * 5;
+            b.setLaserChargesAvailable(b.getLaserChargesAvailable() + numCharges);
+            uiPort.showGiftCollected("Ammo Secured!\n+" + numCharges + " Laser Charges");
+            System.out.println("[INFO] Laser battery " + sourceId + " refilled with " + numCharges + " charges.");
+        }
+    } catch (Exception e) {
+        System.err.println("[ERROR] Exception caught during ammo refill execution: " + e.getMessage());
+    }
+}
 
     private AbstractDefenseSystem findDefenseSystemById(int id, List<Damageable> damageables) {
         for (Damageable system : damageables) {
