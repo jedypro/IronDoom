@@ -74,7 +74,7 @@ public class RandomEventSystem {
         });
     }
 
-    public void maybeTrigger(double timeStep, TeamUiPort uiPort, boolean isDisablingBatteryAllowed) {
+    public void maybeTrigger(double timeStep, TeamUiPort uiPort) {
         if (rows == null || rows.length == 0) return;
 
         double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
@@ -92,7 +92,7 @@ public class RandomEventSystem {
                 
                 resultText = goodActions.get(actionIndex).execute();
             } else if (!isGood && !badActions.isEmpty()) {
-                System.out.println("[log] event: "+ resultText+ " is disabling battery allowed? " + isDisablingBatteryAllowed);
+                System.out.println("[log] event: "+ resultText);
                 int actionIndex = ThreadLocalRandom.current().nextInt(badActions.size());
                 resultText = badActions.get(actionIndex).execute();
                 System.out.println("[log] event executed: "+ resultText);

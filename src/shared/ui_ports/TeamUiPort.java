@@ -21,6 +21,7 @@ public abstract class TeamUiPort {
         if (instance == null) throw new IllegalStateException("TeamUiPort instance not set yet");
         return instance;
     }
+
     
 
     // Your UI commands here, for example:
@@ -30,10 +31,11 @@ public abstract class TeamUiPort {
     public abstract void triggerExplosion(int x, int y);
     public abstract void updateScore(int score);
     public abstract void updateLevel(int level);
-    public abstract void displayScene(java.util.List<team.domain.AbstractThreat> threats, java.util.List<team.domain.Damageable> damageables, java.util.List<team.domain.DefenseEntity> interceptors, java.util.List<team.domain.Gift> gifts, int score, boolean running);
     public abstract void showWarning(String message);
     public abstract void showLevelComplete(String message);
     public abstract void displayCivilians(java.util.List<team.domain.Civilian> civilians);
+    public abstract void displayScene(List<AbstractThreat> threats, List<Damageable> damageables, List<DefenseEntity> interceptors, List<Gift> gifts, int score, boolean running, int groundY);
+
 
     //sound effects
     public abstract void playExplosionSound();
@@ -48,5 +50,7 @@ public abstract class TeamUiPort {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'showGiftCollected'");
     }
+
+
 
 }

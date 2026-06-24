@@ -320,12 +320,12 @@ public class Ui {
 
     public void setScene(List<AbstractThreat> threats, List<Damageable> damageables,
                           List<DefenseEntity> interceptors, List<Gift> gifts,
-                          int score, boolean running) {
+                          int score, boolean running, int groundY) {
 
         if (UIConstants.CARD_LEVEL_COMPLETE.equals(uiState.getCurrentScreen())) return;
 
         checkBatteryHits(damageables);
-        sceneData.update(threats, damageables, interceptors, gifts);
+        sceneData.update(threats, damageables, interceptors, gifts, groundY);
         uiState.setRunning(running);
 
         updateScore(score);
@@ -346,8 +346,8 @@ public class Ui {
     }
 
     public void displayScene(List<AbstractThreat> threats, List<Damageable> damageables,
-                              List<DefenseEntity> interceptors, int score, boolean running) {
-        setScene(threats, damageables, interceptors, java.util.Collections.emptyList(), score, running);
+                              List<DefenseEntity> interceptors, int score, boolean running, int groundY) {
+        setScene(threats, damageables, interceptors, java.util.Collections.emptyList(), score, running, groundY);
     }
 
     public void setCivilians(List<Civilian> civilians) {

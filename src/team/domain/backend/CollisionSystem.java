@@ -155,6 +155,7 @@ public class CollisionSystem {
                 DefenseEntity interceptor = interceptorIterator.next();
 
                 if (!interceptor.isActive()) {
+                    interceptorIterator.remove(); 
                     continue;
                 }
 

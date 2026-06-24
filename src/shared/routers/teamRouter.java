@@ -74,6 +74,10 @@ public class teamRouter implements SubRouter {
                 App.getPeriodicLoop().setPaused(false);
                 return null;
             
+            case "/getGroundY": {
+                return backend.getGameState().getGroundY();
+            }
+
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }
