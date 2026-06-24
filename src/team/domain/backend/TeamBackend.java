@@ -67,8 +67,9 @@ public class TeamBackend {
         activeGifts.clear();
         
         int currentLevel = (this.gameState != null) ? this.gameState.getLevel() : 1;
-        gameState = new GameState(300, currentLevel, true);
-        
+        gameState.setScore(300);
+        gameState.setLevel(currentLevel);
+        gameState.setStatus(true);        
         levelManager.reset();
         barrageManager.reset();
         initializeWorld();

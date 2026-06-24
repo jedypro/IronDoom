@@ -77,7 +77,7 @@ public class RandomEventSystem {
     public void maybeTrigger(double timeStep, TeamUiPort uiPort) {
         if (rows == null || rows.length == 0) return;
 
-        double eventProbabilityThisFrame = (1.0 / 60) * timeStep;
+        double eventProbabilityThisFrame = (1.0 / 10) * timeStep;
         if (Math.random() < eventProbabilityThisFrame) {
             System.out.println("triggering random event");
             
