@@ -90,6 +90,14 @@ public class PanelFactory {
 
             navigator.showGame();
         });
+        playAgain.addActionListener(e -> {
+            canvas.clearFloatingTexts();
+            if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
+                mainRouter.route("/team/setMode", Params.of(lastModeEndless));
+            }
+            navigator.showGame();
+        });
         exit.addActionListener(e -> System.exit(0));
 
         JPanel buttons = opaqueFlow(12, playAgain, exit);

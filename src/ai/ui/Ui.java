@@ -147,6 +147,10 @@ public class Ui {
         JButton restartBtn  = new JButton("Restart");
 
         homeBtn.addActionListener(e    -> navigator.showIntro());
+        restartBtn.addActionListener(e -> {
+            gameCanvas.clearFloatingTexts();
+            if (mainRouter != null) mainRouter.route("/team/reset", Params.of());
+        });
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_GAME));
         restartBtn.addActionListener(e  -> { if (mainRouter != null) mainRouter.route("/team/reset", Params.of()); });
         pauseBtn.addActionListener(e    -> navigator.togglePause());

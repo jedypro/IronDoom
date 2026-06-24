@@ -105,6 +105,9 @@ public class GameCanvas extends JPanel implements ActionListener {
     public void addFloatingText(int x, int y, String text, Color color, long durationMs) {
         floatingTexts.add(new FloatingText(x, y, text, color, durationMs));
     }
+    public void clearFloatingTexts() {
+        floatingTexts.clear();
+    }
 
     public void triggerScreenShake(int durationMs, int magnitude) {
         screenShakeEndTime    = System.currentTimeMillis() + durationMs;
