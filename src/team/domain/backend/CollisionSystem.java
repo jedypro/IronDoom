@@ -56,7 +56,11 @@ public class CollisionSystem {
                     
                     damageable.tookHit();
                     if (damageable instanceof GroundAsset) {
+                        if (populationManager.isBuildingPopulated((GroundAsset) damageable)) {
+                            uiPort.playScreamSound();
+                        }
                         populationManager.notifyBuildingHit((GroundAsset) damageable);
+
                     }
                     
                     uiPort.removeEntity(threat.getId());

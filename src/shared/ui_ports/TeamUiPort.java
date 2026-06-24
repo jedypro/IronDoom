@@ -42,6 +42,7 @@ public abstract class TeamUiPort {
     public abstract void playInterceptSound();
     public abstract void playWarningSound();
     public abstract void playLevelCompleteSound();
+    public abstract void playScreamSound();
 
     //events
     public abstract void showGameEvent(String description, String result, boolean isGood);

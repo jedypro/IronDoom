@@ -62,6 +62,14 @@ public class PopulationManager {
             }
         }
     }
+    public boolean isBuildingPopulated(GroundAsset building) {
+        for (Civilian c : civilians) {
+            if (c.isHiding() && c.getTargetBuilding() != null && c.getTargetBuilding().getId() == building.getId()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public List<Civilian> getCivilians() {
         return civilians;

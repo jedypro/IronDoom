@@ -1,5 +1,9 @@
 package ai.ui;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import javax.swing.SwingUtilities;
@@ -102,6 +106,30 @@ public class TeamUiPortImpl extends TeamUiPort {
     public void playLevelCompleteSound() {
         if (ui.isSoundEnabled()) {
             AudioPlayer.play("resources/sounds/level_complete.wav", 1);
+        }
+    }
+
+    @Override
+    public void playScreamSound() {
+        if (ui.isSoundEnabled()) {
+            // הגדרת הנתיב לתיקיית הצעקות
+            File folder = new File("resources/sounds/screams");
+            File[] listOfFiles = folder.listFiles();
+
+            // מוודאים שהתיקייה קיימת ושיש בה קבצים
+            if (listOfFiles != null && listOfFiles.length > 0) {
+                // ממירים את המערך לרשימה כדי שנוכל לערבב אותה
+                List<File> fileList = new ArrayList<>(Arrays.asList(listOfFiles));
+                Collections.shuffle(fileList);
+
+                // מנגנים את הקובץ האקראי הראשון
+                AudioPlayer.play(fileList.get(0).getPath().replace("\\", "/"), 1);
+
+                // אם יש בתיקייה יותר מקובץ אחד, מנגנים גם את הקובץ האקראי השני
+                if (fileList.size() > 1) {
+                    AudioPlayer.play(fileList.get(1).getPath().replace("\\", "/"), 1);
+                }
+            }
         }
     }
 

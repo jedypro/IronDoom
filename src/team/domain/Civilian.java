@@ -79,4 +79,8 @@ public class Civilian {
     public double getY() { return y; }
     public State getState() { return state; }
     public GroundAsset getTargetBuilding() { return targetBuilding; }
+
+    public boolean isHiding() {
+        return state == State.HIDING;
+    }
 }   
