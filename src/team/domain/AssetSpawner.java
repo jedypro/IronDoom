@@ -25,7 +25,7 @@ public class AssetSpawner {
     private final List<Integer> occupiedXPositions = new ArrayList<>();
     
     private int assetIdCounter = 1;
-    private final int SAFE_MARGIN = 40; // מרווח ביטחון מסביב למבנה
+    private final int SAFE_MARGIN = 30; // מרווח ביטחון מסביב למבנה
 
     // פונקציות רישום
     public void registerRegularAsset(AssetCreator creator) {
@@ -120,7 +120,7 @@ public class AssetSpawner {
     // פונקציית עזר למציאת קואורדינטת X שאינה חופפת לנכסים קיימים
     private int findSafeX(int expectedWidth) {
         for (int attempts = 0; attempts < 50; attempts++) {
-            int candidateX = ThreadLocalRandom.current().nextInt(40, 1160 - expectedWidth);
+            int candidateX = ThreadLocalRandom.current().nextInt(40, 1400 - expectedWidth);
             boolean isSafe = true;
 
             for (int i = 0; i < occupiedXPositions.size(); i += 2) {
