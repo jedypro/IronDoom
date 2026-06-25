@@ -109,6 +109,10 @@ public class TeamBackend {
         levelManager.reset();
         barrageManager.reset();
         
+        populationManager.reset();
+        this.activeGifts.clear();
+
+        this.threats.clear();
         threatsRegister();
         
         this.damageables.clear();
