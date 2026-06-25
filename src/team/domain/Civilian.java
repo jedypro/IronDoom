@@ -168,7 +168,7 @@ public class Civilian {
     public boolean isAirborne()           { return isAirborne; }
     public double getVelX()               { return velX; }
 
-    public boolean isHiding() {
-        return state == State.HIDING;
+    public boolean isHidingOrOnRoof() {
+        return state == State.HIDING || state == State.ON_ROOF;
     }
 }

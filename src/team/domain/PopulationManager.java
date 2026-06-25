@@ -66,7 +66,7 @@ public class PopulationManager {
 
     public boolean isBuildingPopulated(GroundAsset building) {
         for (Civilian c : civilians) {
-            if ((c.isHiding() || c.getState() == Civilian.State.ON_ROOF)
+            if ((c.isHidingOrOnRoof() || c.getState() == Civilian.State.ON_ROOF)
                     && c.getTargetBuilding() != null
                     && c.getTargetBuilding().getId() == building.getId()) {
                 return true;
