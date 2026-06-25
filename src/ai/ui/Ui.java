@@ -122,7 +122,8 @@ public class Ui {
         fireButton.addActionListener(e -> doFire(angleSlider));
 
         // ── Aim toggle ────────────────────────────────────────────────────────
-        JButton toggleAimBtn = WidgetFactory.createStyledButton("Show Aim", 18);
+        JButton toggleAimBtn = WidgetFactory.createStyledButton("Show Aim", 14);
+        toggleAimBtn.setPreferredSize(new Dimension(110, 38));
         toggleAimBtn.addActionListener(e -> {
             boolean next = !gameCanvas.isShowAim();
             gameCanvas.setShowAim(next);
