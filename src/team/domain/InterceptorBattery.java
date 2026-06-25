@@ -67,9 +67,6 @@ public DefenseEntity attemptDefense(TargetingParams params) {
             missile.setMovementStrategy(new BallisticMovementStrategy());
 
             missilesAvailable--;
-            if(missilesAvailable == 0) {
-                this.isActive = false;
-            }
             return missile;
         }
         return null;
