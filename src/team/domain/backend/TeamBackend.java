@@ -66,15 +66,15 @@ public class TeamBackend {
         damageables.clear();
         activeGifts.clear();
         
-        int currentLevel = (this.gameState != null) ? this.gameState.getLevel() : 1;
         gameState.setScore(300);
-        gameState.setLevel(currentLevel);
+        gameState.setLevel(1);
         gameState.setStatus(true);        
         levelManager.reset();
         barrageManager.reset();
         initializeWorld();
         
         App.getPeriodicLoop().setPaused(false);
+        teamUiPort().updateLevel(gameState.getLevel());
         publishScene();
     }
 

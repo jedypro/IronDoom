@@ -179,7 +179,6 @@ public class Ui {
         introPanel               = panelFactory.createIntroPanel();
         levelCompleteTitleLabel  = panelFactory.getLevelCompleteTitleLabel();
 
-        navigator.setDifficultySpinner(panelFactory.getDifficultySpinner());
 
         rootPanel.add(introPanel,                           UIConstants.CARD_INTRO);
         rootPanel.add(gameScreen,                           UIConstants.CARD_GAME);
@@ -187,6 +186,8 @@ public class Ui {
         rootPanel.add(panelFactory.createLevelCompletePanel(), UIConstants.CARD_LEVEL_COMPLETE);
         rootPanel.add(panelFactory.createSettingsPanel(),   UIConstants.CARD_SETTINGS);
         rootPanel.add(panelFactory.createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
+        
+        navigator.setDifficultySpinner(panelFactory.getDifficultySpinner());
 
         // ── Frame ─────────────────────────────────────────────────────────────
         frame = new JFrame("IronDoom Scenario Demo");
