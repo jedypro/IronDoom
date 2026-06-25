@@ -9,10 +9,10 @@ public class PopulationManager {
     private final List<Civilian> civilians = new ArrayList<>();
     private int idCounter = 1;
     private double timeSinceLastSpawn = 0;
-    
+
     private static final double SPAWN_INTERVAL = 2.0; // כל כמה שניות לנסות לייצר אזרח
-    private static final int MAX_CIVILIANS = 10;      // מקסימום אזרחים בסך הכל
-    private static final double WORLD_WIDTH = 1200.0;
+    private static final int    MAX_CIVILIANS   = 10;  // מקסימום אזרחים בסך הכל
+    private static final double WORLD_WIDTH     = 1200.0;
 
     public void update(double timeStep, int groundY, List<Damageable> damageables) {
         timeSinceLastSpawn += timeStep;
@@ -50,11 +50,12 @@ public class PopulationManager {
         // הגרלת מבנה מתוך רשימת המבנים והגרלת צד הגעה (שמאל או ימין)
         GroundAsset target = buildings.get(ThreadLocalRandom.current().nextInt(buildings.size()));
         double startX = Math.random() > 0.5 ? -50 : WORLD_WIDTH + 50;
-        
+
         civilians.add(new Civilian(idCounter++, startX, target));
     }
 
     // ה-Backend יקרא לפונקציה הזו כשהוא מזהה פגיעה במבנה!
+    // מי שהיה בתוך המבנה בורח, מי שהיה על הגג — עף באוויר!
     public void notifyBuildingHit(GroundAsset building) {
         for (Civilian c : civilians) {
             if (c.getTargetBuilding() != null && c.getTargetBuilding().getId() == building.getId()) {
@@ -62,9 +63,12 @@ public class PopulationManager {
             }
         }
     }
+
     public boolean isBuildingPopulated(GroundAsset building) {
         for (Civilian c : civilians) {
-            if (c.isHiding() && c.getTargetBuilding() != null && c.getTargetBuilding().getId() == building.getId()) {
+            if ((c.isHiding() || c.getState() == Civilian.State.ON_ROOF)
+                    && c.getTargetBuilding() != null
+                    && c.getTargetBuilding().getId() == building.getId()) {
                 return true;
             }
         }

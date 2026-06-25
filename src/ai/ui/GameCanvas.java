@@ -24,8 +24,8 @@ import javax.swing.Timer;
 public class GameCanvas extends JPanel implements ActionListener {
 
     // ── Dependencies ──────────────────────────────────────────────────────────
-    private final SceneData  sceneData;
-    private final UiState    uiState;
+    private final SceneData   sceneData;
+    private final UiState     uiState;
     private final ImageLoader imageLoader;
 
     // ── Repaint timer ─────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ public class GameCanvas extends JPanel implements ActionListener {
     private final List<FloatingText> floatingTexts = new ArrayList<>();
 
     // ── Screen shake ─────────────────────────────────────────────────────────
-    private long screenShakeEndTime   = 0;
+    private long screenShakeEndTime    = 0;
     private int  currentShakeMagnitude = 0;
 
     // ── Aim line ─────────────────────────────────────────────────────────────
@@ -79,9 +79,9 @@ public class GameCanvas extends JPanel implements ActionListener {
     // Animation lifecycle
     // =========================================================================
 
-    public void startAnimation()   { repaintTimer.start(); }
-    public void pauseAnimation()   { repaintTimer.stop();  }
-    public void resumeAnimation()  { repaintTimer.start(); }
+    public void startAnimation()  { repaintTimer.start(); }
+    public void pauseAnimation()  { repaintTimer.stop();  }
+    public void resumeAnimation() { repaintTimer.start(); }
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -105,6 +105,7 @@ public class GameCanvas extends JPanel implements ActionListener {
     public void addFloatingText(int x, int y, String text, Color color, long durationMs) {
         floatingTexts.add(new FloatingText(x, y, text, color, durationMs));
     }
+
     public void clearFloatingTexts() {
         floatingTexts.clear();
     }
@@ -118,15 +119,15 @@ public class GameCanvas extends JPanel implements ActionListener {
     // Aim line toggle
     // =========================================================================
 
-    public boolean isShowAim() { return showAim; }
+    public boolean isShowAim()           { return showAim; }
     public void setShowAim(boolean show) { showAim = show; repaint(); }
 
     // =========================================================================
     // Coordinate helpers
     // =========================================================================
-    
-    private int toScreenX(double wx) { return offsetX + (int) Math.round(wx * scale); }
-    private int toScreenY(double wy) { return offsetY + (int) Math.round(wy * scale); }
+
+    private int toScreenX(double wx)   { return offsetX + (int) Math.round(wx * scale); }
+    private int toScreenY(double wy)   { return offsetY + (int) Math.round(wy * scale); }
     private int toScreenLen(double wl) { return Math.max(1, (int) Math.round(wl * scale)); }
     private int toScreenDelta(double wd) { return (int) Math.round(wd * scale); }
 
@@ -140,8 +141,8 @@ public class GameCanvas extends JPanel implements ActionListener {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
-        List<Damageable>     dmg    = sceneData.getDamageables();
-        List<AbstractThreat> thrs   = sceneData.getThreats();
+        List<Damageable>     dmg  = sceneData.getDamageables();
+        List<AbstractThreat> thrs = sceneData.getThreats();
 
         if (thrs.isEmpty() && dmg.isEmpty()) {
             drawMessage(g2d, "Waiting for scene data...");
@@ -159,8 +160,8 @@ public class GameCanvas extends JPanel implements ActionListener {
             offsetY += (int) ((Math.random() * 2 - 1) * currentShakeMagnitude);
         }
 
-        boolean tick = (System.currentTimeMillis() / 100) % 2 == 0;
-        int groundY  = sceneData.getGroundY();
+        boolean tick    = (System.currentTimeMillis() / 100) % 2 == 0;
+        int     groundY = sceneData.getGroundY();
 
         drawBackground(g2d, groundY);
         drawGroundAssets(g2d, groundY, tick);
@@ -176,22 +177,6 @@ public class GameCanvas extends JPanel implements ActionListener {
     }
 
     // =========================================================================
-    // Ground Y
-    // =========================================================================
-    //
-    // groundY is no longer inferred here. It used to be guessed from the
-    // tallest GroundAsset's bottom edge, with a hardcoded fallback (650) used
-    // whenever no GroundAsset happened to be present - that fallback didn't
-    // match GameState's real ground Y (730). At higher levels, when the map
-    // gets crowded and no GroundAsset manages to spawn, that mismatch made the
-    // drawn ground sit ~80px too high while threats/explosions still resolved
-    // against the true ground, making them appear to originate or explode
-    // "inside" the ground. groundY now comes straight from SceneData, which
-    // the backend populates every frame via the TeamUiPort - the renderer
-    // stays a pure consumer of that snapshot and never touches team.domain
-    // directly to compute it.
-
-    // =========================================================================
     // Background
     // =========================================================================
 
@@ -200,7 +185,6 @@ public class GameCanvas extends JPanel implements ActionListener {
         int sgy   = toScreenY(groundY);
 
         if (level >= UIConstants.THEME_ARCTIC_MIN) {
-            // Arctic
             g.setPaint(new GradientPaint(0, 0, new Color(180, 220, 255), 0, getHeight(), new Color(220, 240, 255)));
             g.fillRect(0, 0, getWidth(), getHeight());
             g.setColor(new Color(255, 255, 240, 200));
@@ -212,7 +196,6 @@ public class GameCanvas extends JPanel implements ActionListener {
             g.fillRect(0, sgy, getWidth(), toScreenLen(8));
 
         } else if (level >= UIConstants.THEME_DESERT_MIN) {
-            // Desert
             g.setPaint(new GradientPaint(0, 0, new Color(135, 206, 235), 0, getHeight(), new Color(240, 240, 220)));
             g.fillRect(0, 0, getWidth(), getHeight());
             g.setColor(new Color(255, 220, 100));
@@ -224,7 +207,6 @@ public class GameCanvas extends JPanel implements ActionListener {
             g.fillRect(0, sgy, getWidth(), toScreenLen(8));
 
         } else {
-            // Default night
             g.setColor(UIConstants.COLOR_BACKGROUND);
             g.fillRect(0, 0, getWidth(), getHeight());
             g.setColor(new Color(255, 255, 220, 180));
@@ -328,13 +310,13 @@ public class GameCanvas extends JPanel implements ActionListener {
     }
 
     private void drawCity(Graphics g, GroundAsset city, int sx, int sy, int sw, int sh, ThemeColors tc, int level) {
-        g.setColor(tc.buildingBg);  g.fillRect(sx, sy, sw, sh);
+        g.setColor(tc.buildingBg);    g.fillRect(sx, sy, sw, sh);
         g.setColor(tc.buildingInner); g.fillRect(sx + toScreenLen(4), sy + toScreenLen(4), Math.max(1, sw - toScreenLen(8)), Math.max(1, sh - toScreenLen(8)));
         g.setColor(Color.BLACK); g.drawRect(sx, sy, sw, sh);
 
         int blockW = Math.max(toScreenLen(20), sw / 5);
         for (int i = 0; i < sw; i += blockW) {
-            int bw = Math.min(blockW, sw - i);
+            int bw   = Math.min(blockW, sw - i);
             int seed = i / blockW;
             drawCityBlock(g, sx + i, sy + sh, bw, seed, city.getHeight(), tc, level);
         }
@@ -395,8 +377,8 @@ public class GameCanvas extends JPanel implements ActionListener {
         boolean selected = lb.getId() == uiState.getSelectedBatteryId();
         int level = uiState.getCurrentLevel();
 
-        Color base     = new Color(50, 60, 90);
-        Color sel      = new Color(70, 150, 230);
+        Color base = new Color(50, 60, 90);
+        Color sel  = new Color(70, 150, 230);
 
         if (selected) {
             Graphics2D gH = (Graphics2D) g.create();
@@ -461,7 +443,7 @@ public class GameCanvas extends JPanel implements ActionListener {
         gH.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int pad = toScreenLen(10);
         boolean arctic = level >= UIConstants.THEME_ARCTIC_MIN;
-        Color gc1 = arctic ? new Color(100, 255, 100, 90) : new Color(80, 230, 255, 90);
+        Color gc1 = arctic ? new Color(100, 255, 100, 90)  : new Color(80, 230, 255, 90);
         Color gc2 = arctic ? new Color(150, 255, 150, 180) : new Color(150, 245, 255, 180);
         gH.setColor(gc1);
         gH.fillRoundRect(bx - halfBase - pad, by - baseH - pad, baseW + pad * 2, baseH + pad * 2, toScreenLen(24), toScreenLen(24));
@@ -491,12 +473,12 @@ public class GameCanvas extends JPanel implements ActionListener {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         for (int i = 0; i < 4; i++) {
-            long t = (time + i * 375L) % 1500L;
+            long   t        = (time + i * 375L) % 1500L;
             double progress = t / 1500.0;
-            int size  = toScreenLen(15) + (int)(progress * toScreenLen(35));
-            int smokeX = cx - size / 2 + (int)(Math.sin(time / 250.0 + i) * toScreenLen(10));
-            int smokeY = cy - (int)(progress * toScreenLen(80));
-            int alpha  = (int)(200 * (1.0 - progress));
+            int    size     = toScreenLen(15) + (int)(progress * toScreenLen(35));
+            int    smokeX   = cx - size / 2 + (int)(Math.sin(time / 250.0 + i) * toScreenLen(10));
+            int    smokeY   = cy - (int)(progress * toScreenLen(80));
+            int    alpha    = (int)(200 * (1.0 - progress));
             g2.setColor(new Color(30, 30, 30, Math.max(0, alpha)));
             g2.fillOval(smokeX, smokeY, size, size);
         }
@@ -513,7 +495,17 @@ public class GameCanvas extends JPanel implements ActionListener {
             if (c.getState() == Civilian.State.HIDING) continue;
 
             int cx = toScreenX(c.getX());
-            int cy = toScreenY(c.getY()) - computeJumpOffset(c, time, tick);
+            int cy;
+
+            if (c.isAirborne()) {
+                // בזמן עפיפה: המיקום מגיע מהפיזיקה ישירות — לא מחשבים קפיצה
+                cy = toScreenY(c.getY());
+            } else if (c.getState() == Civilian.State.ON_ROOF) {
+                // על הגג: הגובה הוא גובה הגג של המבנה
+                cy = toScreenY(c.getY());
+            } else {
+                cy = toScreenY(c.getY()) - computeJumpOffset(c, time, tick);
+            }
 
             int w = toScreenLen(24), h = toScreenLen(36);
             Image img = imageLoader.getCivilianImage(c.getId() % 3);
@@ -524,18 +516,52 @@ public class GameCanvas extends JPanel implements ActionListener {
                     w = toScreenLen(iw); h = toScreenLen(ih);
                     if (ih > 60) { h = toScreenLen(36); w = (int)(h * ((double) iw / ih)); }
                 }
-                g.drawImage(img, cx - w / 2, cy - h, w, h, null);
-            } else {
-                g.setColor(new Color(255, 200, 200)); g.fillRect(cx - w / 2, cy - h, w, h);
-                g.setColor(Color.BLACK); g.drawRect(cx - w / 2, cy - h, w, h);
             }
 
-            if (c.getState() == Civilian.State.FLEEING) {
-                int fs = toScreenLen(12);
-                g.setColor(tick ? Color.RED : Color.ORANGE);
-                g.fillOval(cx - fs / 2, cy - h - fs, fs, fs);
-                g.setColor(Color.YELLOW);
-                g.fillOval(cx - fs / 4, cy - h - fs + toScreenLen(2), fs / 2, fs / 2);
+            if (c.isAirborne()) {
+                // --- ציור מסתובב בזמן עפיפה ---
+                // זווית הסיבוב מחושבת לפי כיוון התנועה האופקית + מסתובב עם הזמן
+                double spinSpeed   = 360.0 / 600.0; // סיבוב מלא כל 600ms
+                double rotationDeg = (time % 600) * spinSpeed * (c.getVelX() >= 0 ? 1 : -1);
+
+                Graphics2D gR = (Graphics2D) g.create();
+                gR.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                gR.translate(cx, cy - h / 2);
+                gR.rotate(Math.toRadians(rotationDeg));
+
+                if (img != null) {
+                    gR.drawImage(img, -w / 2, -h / 2, w, h, null);
+                } else {
+                    gR.setColor(new Color(255, 200, 200));
+                    gR.fillRect(-w / 2, -h / 2, w, h);
+                    gR.setColor(Color.BLACK);
+                    gR.drawRect(-w / 2, -h / 2, w, h);
+                }
+                gR.dispose();
+
+                
+
+            } else {
+                // --- ציור רגיל ---
+                if (img != null) {
+                    g.drawImage(img, cx - w / 2, cy - h, w, h, null);
+                } else {
+                    g.setColor(new Color(255, 200, 200));
+                    g.fillRect(cx - w / 2, cy - h, w, h);
+                    g.setColor(Color.BLACK);
+                    g.drawRect(cx - w / 2, cy - h, w, h);
+                }
+
+                // אינדיקטור בריחה (להבה קטנה מעל הראש)
+                if (c.getState() == Civilian.State.FLEEING) {
+                    int fs = toScreenLen(12);
+                    g.setColor(tick ? Color.RED : Color.ORANGE);
+                    g.fillOval(cx - fs / 2, cy - h - fs, fs, fs);
+                    g.setColor(Color.YELLOW);
+                    g.fillOval(cx - fs / 4, cy - h - fs + toScreenLen(2), fs / 2, fs / 2);
+                }
+
+                
             }
         }
     }
@@ -591,7 +617,6 @@ public class GameCanvas extends JPanel implements ActionListener {
                 g.setColor(Color.BLACK); g.drawRect(-toScreenLen(6), -toScreenLen(10), toScreenLen(12), toScreenLen(25));
             }
         } else {
-            // Sharp design for levels 4-6
             Color bodyC = new Color(160, 140, 110), cockC = new Color(255, 180, 50, 200);
             if (threat instanceof UAV) {
                 int[] ux = { 0, toScreenLen(-8), toScreenLen(-14), toScreenLen(-8), 0, toScreenLen(8), toScreenLen(14), toScreenLen(8) };
@@ -665,7 +690,7 @@ public class GameCanvas extends JPanel implements ActionListener {
             Color body = level >= UIConstants.THEME_ARCTIC_MIN ? new Color(90, 90, 85) : Color.LIGHT_GRAY;
             Color cock = level >= UIConstants.THEME_ARCTIC_MIN ? new Color(100, 255, 100) : Color.BLUE;
             if (tick) { g.setColor(Color.CYAN); g.fillRect(-toScreenLen(4), toScreenLen(10), toScreenLen(8), toScreenLen(10)); }
-            else       { g.setColor(Color.CYAN); g.fillRect(-toScreenLen(3), toScreenLen(10), toScreenLen(6), toScreenLen(8)); }
+            else       { g.setColor(Color.CYAN); g.fillRect(-toScreenLen(3), toScreenLen(10), toScreenLen(6), toScreenLen(8));  }
             g.setColor(body); g.fillRect(-toScreenLen(4), -toScreenLen(10), toScreenLen(8), toScreenLen(20));
             g.setColor(cock); g.fillRect(-toScreenLen(5), -toScreenLen(14), toScreenLen(6), toScreenLen(4));
         } else {
@@ -778,10 +803,6 @@ public class GameCanvas extends JPanel implements ActionListener {
         g.drawString(msg, 20, 20);
     }
 
-    /**
-     * Computes the orientation angle of a moving entity from its
-     * position history.
-     */
     private double computeAngle(
             int id, int x, int y,
             Map<Integer, Point>  prevPositions,
@@ -839,29 +860,29 @@ public class GameCanvas extends JPanel implements ActionListener {
         static ThemeColors forLevel(int level) {
             ThemeColors tc = new ThemeColors();
             if (level >= UIConstants.THEME_ARCTIC_MIN) {
-                tc.buildingBg       = new Color(110, 100, 90);
-                tc.buildingInner    = new Color(130, 120, 110);
-                tc.blockBg          = new Color(80, 75, 70);
-                tc.windowColor      = new Color(100, 255, 100);
-                tc.batteryBase      = new Color(90, 90, 85);
-                tc.batterySelected  = new Color(100, 255, 100);
-                tc.tubes            = new Color(70, 70, 65);
+                tc.buildingBg      = new Color(110, 100, 90);
+                tc.buildingInner   = new Color(130, 120, 110);
+                tc.blockBg         = new Color(80, 75, 70);
+                tc.windowColor     = new Color(100, 255, 100);
+                tc.batteryBase     = new Color(90, 90, 85);
+                tc.batterySelected = new Color(100, 255, 100);
+                tc.tubes           = new Color(70, 70, 65);
             } else if (level >= UIConstants.THEME_DESERT_MIN) {
-                tc.buildingBg       = new Color(180, 150, 110);
-                tc.buildingInner    = new Color(200, 170, 130);
-                tc.blockBg          = new Color(190, 160, 120);
-                tc.windowColor      = new Color(40, 50, 90);
-                tc.batteryBase      = new Color(120, 110, 90);
-                tc.batterySelected  = new Color(120, 200, 250);
-                tc.tubes            = new Color(100, 90, 80);
+                tc.buildingBg      = new Color(180, 150, 110);
+                tc.buildingInner   = new Color(200, 170, 130);
+                tc.blockBg         = new Color(190, 160, 120);
+                tc.windowColor     = new Color(40, 50, 90);
+                tc.batteryBase     = new Color(120, 110, 90);
+                tc.batterySelected = new Color(120, 200, 250);
+                tc.tubes           = new Color(100, 90, 80);
             } else {
-                tc.buildingBg       = new Color(30, 45, 55);
-                tc.buildingInner    = new Color(70, 95, 110);
-                tc.blockBg          = new Color(45, 60, 75);
-                tc.windowColor      = new Color(170, 210, 255);
-                tc.batteryBase      = UIConstants.COLOR_BATTERY;
-                tc.batterySelected  = UIConstants.COLOR_SELECTED_BATTERY;
-                tc.tubes            = new Color(100, 130, 80);
+                tc.buildingBg      = new Color(30, 45, 55);
+                tc.buildingInner   = new Color(70, 95, 110);
+                tc.blockBg         = new Color(45, 60, 75);
+                tc.windowColor     = new Color(170, 210, 255);
+                tc.batteryBase     = UIConstants.COLOR_BATTERY;
+                tc.batterySelected = UIConstants.COLOR_SELECTED_BATTERY;
+                tc.tubes           = new Color(100, 130, 80);
             }
             return tc;
         }
