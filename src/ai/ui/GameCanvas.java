@@ -57,6 +57,22 @@ public class GameCanvas extends JPanel implements ActionListener {
     private final Map<Integer, Double> threatAngles             = new HashMap<>();
     private final Map<Integer, Point>  prevInterceptorPositions = new HashMap<>();
     private final Map<Integer, Double> interceptorAngles        = new HashMap<>();
+    static class BurningBuilding {
+        int assetId, x, y, width, height;
+        long startTime;
+        
+        BurningBuilding(int assetId, int x, int y, int w, int h) {
+            this.assetId = assetId;
+            this.x = x; this.y = y; this.width = w; this.height = h;
+            this.startTime = System.currentTimeMillis();
+        }
+        
+        // האש תבער בדיוק 3 שניות (3000 אלפיות השנייה)
+        boolean isExpired() {
+            return System.currentTimeMillis() - startTime > 3000; 
+        }
+    }
+    private final List<BurningBuilding> burningBuildings = new ArrayList<>();
 
     // =========================================================================
     // Construction
@@ -87,6 +103,10 @@ public class GameCanvas extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         explosions.removeIf(Explosion::isExpired);
         floatingTexts.removeIf(FloatingText::isExpired);
+        
+        // <<< השורה החדשה >>>
+        burningBuildings.removeIf(BurningBuilding::isExpired); 
+        
         repaint();
     }
 
@@ -96,6 +116,30 @@ public class GameCanvas extends JPanel implements ActionListener {
 
     public void addExplosion(int x, int y) {
         explosions.add(new Explosion(x, y));
+        // בדיקת פגיעה בבניינים להדלקת אש
+            for (Damageable d : sceneData.getDamageables()) {
+                if (d instanceof GroundAsset) {
+                    GroundAsset asset = (GroundAsset) d;
+                    // אם הפיצוץ קרוב לבניין (ריווח של 20 פיקסלים)
+                    if (x >= asset.getX() - 20 && x <= asset.getX() + asset.getWidth() + 20 &&
+                        y >= asset.getY() - 20 && y <= asset.getY() + asset.getHeight() + 20) {
+                        
+                        // בודקים אם הוא כבר בוער ומחדשים את הטיימר, או מציתים מחדש
+                        boolean found = false;
+                        for (BurningBuilding bb : burningBuildings) {
+                            if (bb.assetId == asset.getId()) {
+                                bb.startTime = System.currentTimeMillis(); 
+                                found = true; 
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            burningBuildings.add(new BurningBuilding(asset.getId(), asset.getX(), asset.getY(), asset.getWidth(), asset.getHeight()));
+                        }
+                    }
+                }
+            }
+                
     }
 
     public void addFloatingText(int x, int y, String text, Color color) {
@@ -165,6 +209,7 @@ public class GameCanvas extends JPanel implements ActionListener {
 
         drawBackground(g2d, groundY);
         drawGroundAssets(g2d, groundY, tick);
+        drawBuildingFires(g2d);
         drawCivilians(g2d, tick);
         drawThreats(g2d, tick);
         drawGifts(g2d);
@@ -371,7 +416,7 @@ public class GameCanvas extends JPanel implements ActionListener {
         drawBatteryLabel(g, "Battery", battery.getMissilesAvailable(), bx, by, level, 20);
         if (!battery.isActive()) drawDamagedOverlay(g, bx, by);
     }
-    
+
 
     private void drawLaserBattery(Graphics g, LaserBattery lb, int groundY) {
         int bx = toScreenX(lb.getX()), by = toScreenY(groundY);
@@ -887,6 +932,49 @@ public class GameCanvas extends JPanel implements ActionListener {
                 tc.tubes           = new Color(100, 130, 80);
             }
             return tc;
+        }
+    }
+    // =========================================================================
+    // Building Fire Effects
+    // =========================================================================
+
+    private void drawBuildingFires(Graphics2D g) {
+        long time = System.currentTimeMillis();
+        for (BurningBuilding bb : burningBuildings) {
+            int sx = toScreenX(bb.x);
+            int sy = toScreenY(bb.y);
+            int sw = toScreenLen(bb.width);
+            int sh = toScreenLen(bb.height);
+
+            // 1. ציור להבות בתחתית ועל הבניין
+            for (int i = 0; i < 6; i++) {
+                // תנועה אקראית-אבל-רציפה לאש
+                int flameX = sx + (i * sw / 5) + (int)(Math.sin(time / 100.0 + i) * toScreenLen(5));
+                int flameY = sy + sh - toScreenLen(15) - (int)((Math.sin(time / 50.0 + i * 2) + 1) * toScreenLen(10)); 
+                
+                int flameSize = toScreenLen(20 + (i % 3) * 5);
+                
+                // הילה כתומה-אדומה
+                g.setColor(new Color(255, 80 + (i * 20) % 100, 0, 200)); 
+                g.fillOval(flameX, flameY - flameSize / 2, flameSize, flameSize + toScreenLen(15));
+                
+                // ליבה צהובה
+                g.setColor(new Color(255, 230, 0, 220));
+                g.fillOval(flameX + flameSize / 4, flameY - flameSize / 4, flameSize / 2, flameSize / 2 + toScreenLen(5));
+            }
+
+            // 2. ציור עשן שעולה מהגג
+            for (int i = 0; i < 4; i++) {
+                int smokeX = sx + sw / 2 + (int)(Math.sin(time / 200.0 + i) * toScreenLen(15)) - toScreenLen(15);
+                // העשן עולה למעלה (מודולו נותן אפקט של חזרתיות רציפה)
+                int smokeY = sy - (int)((time / 15.0 + i * 40) % toScreenLen(100));
+                int smokeSize = toScreenLen(25 + i * 10);
+                
+                // ככל שהעשן עולה, הוא נהיה שקוף יותר
+                int alpha = Math.max(0, 150 - (sy - smokeY));
+                g.setColor(new Color(60, 60, 60, alpha));
+                g.fillOval(smokeX, smokeY, smokeSize, smokeSize);
+            }
         }
     }
 }
