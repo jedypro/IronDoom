@@ -218,7 +218,8 @@ public class GameCanvas extends JPanel implements ActionListener {
             g.setColor(new Color(30, 85, 30));
             g.fillRect(0, sgy, getWidth(), toScreenLen(8));
         }
-    }
+    } 
+    
 
     private void drawIcebergs(Graphics2D g, int screenGroundY) {
         g.setColor(new Color(200, 220, 240, 150));
@@ -370,6 +371,7 @@ public class GameCanvas extends JPanel implements ActionListener {
         drawBatteryLabel(g, "Battery", battery.getMissilesAvailable(), bx, by, level, 20);
         if (!battery.isActive()) drawDamagedOverlay(g, bx, by);
     }
+    
 
     private void drawLaserBattery(Graphics g, LaserBattery lb, int groundY) {
         int bx = toScreenX(lb.getX()), by = toScreenY(groundY);
