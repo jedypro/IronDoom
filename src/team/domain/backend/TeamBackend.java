@@ -67,8 +67,10 @@ public class TeamBackend {
         activeGifts.clear();
         
         gameState.setScore(300);
-        gameState.setLevel(1);
-        gameState.setStatus(true);        
+        if (gameState.isEndlessMode()) {
+            gameState.setLevel(1);
+        }
+        gameState.setStatus(true);
         levelManager.reset();
         barrageManager.reset();
         initializeWorld();
