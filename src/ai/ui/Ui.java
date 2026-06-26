@@ -151,6 +151,8 @@ public class Ui {
         restartBtn.addActionListener(e -> {
             gameCanvas.clearFloatingTexts();
             if (mainRouter != null) mainRouter.route("/team/reset", Params.of());
+            mainRouter.route("/team/setSameLevel", Params.of());
+            
         });
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_GAME));
         restartBtn.addActionListener(e  -> { if (mainRouter != null) mainRouter.route("/team/reset", Params.of()); });
@@ -171,7 +173,7 @@ public class Ui {
         superpowerBar.setString("SUPERPOWER READY (Press C)");
         superpowerBar.setForeground(new java.awt.Color(0, 200, 200));
         superpowerBar.setPreferredSize(new java.awt.Dimension(220, 25)); // Resized to fit nicely in the bar
-        
+        superpowerBar.setVisible(false);
        if (uiState != null) {
             uiState.setSuperpowerBar(superpowerBar);
                 System.out.println("[INFO] Superpower progress bar initialized and bound to UiState.");
@@ -182,7 +184,7 @@ public class Ui {
         controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
         controls.add(topBar);
         controls.add(botBar);
-        controls.add(superpowerBar); // Add the superpower bar to the controls panel
+        controls.add(superpowerBar);
 
         JPanel gameScreen = new JPanel(new BorderLayout());
         gameScreen.add(gameCanvas, BorderLayout.CENTER);
@@ -231,6 +233,26 @@ public class Ui {
         gameCanvas.startAnimation();
     }
 
+
+    public void updateSuperpowerVisibility() {
+    try {
+        if (uiState == null) return;
+        
+        javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+        if (bar != null) {
+            boolean shouldBeVisible = (uiState.getCurrentLevel() >= UIConstants.SUPERPOWER_UNLOCK_LEVEL);
+            System.out.println("[INFO] Checking superpower bar visibility. Current level: " + uiState.getCurrentLevel() + ", Should be visible: " + shouldBeVisible);
+            // Only update and revalidate if the visibility state actually changes
+            if (bar.isVisible() != shouldBeVisible) {
+                bar.setVisible(shouldBeVisible);
+                System.out.println("[INFO] Superpower bar visibility updated to: " + shouldBeVisible + " (Level: " + uiState.getCurrentLevel() + ")");
+            }
+        }
+    } catch (Exception e) {
+        System.err.println("[ERROR] Failed to update superpower bar visibility: " + e.getMessage());
+    }
+}
+
     // =========================================================================
     // TeamUiPort surface (called by game engine)
     // =========================================================================
@@ -267,9 +289,48 @@ public class Ui {
     }
 
     public void updateLevel(int level) {
-        uiState.setCurrentLevel(level);
-        SwingUtilities.invokeLater(this::refreshStatusLabel);
+    // 1. Guard clause: Ignore redundant calls if the level hasn't actually changed
+    if (uiState.getCurrentLevel() == level) {
+        return; 
     }
+    
+    uiState.setCurrentLevel(level);
+    System.out.println("[INFO] Current level updated to: " + level);
+    
+    // 2. Safely route all UI updates to the Swing Event Dispatch Thread
+    SwingUtilities.invokeLater(() -> {
+        try {
+            refreshStatusLabel();
+            
+            if (level >= UIConstants.SUPERPOWER_UNLOCK_LEVEL) {
+                javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+                
+                // 3. Only trigger the layout recalculation if it's currently hidden
+                if (bar != null && !bar.isVisible()) {
+                    bar.setVisible(true);
+                    
+                    // Find the absolute top-level window (JFrame) that contains this bar
+                    java.awt.Window topWindow = SwingUtilities.getWindowAncestor(bar);
+                    
+                    if (topWindow != null) {
+                        // Force the entire window to recalculate sizes and redraw everything
+                        topWindow.revalidate();
+                        topWindow.repaint();
+                        System.out.println("[INFO] Superpower bar made visible. Top window revalidated.");
+                    } else if (bar.getParent() != null) {
+                        // Fallback just in case the window isn't found
+                        bar.getParent().revalidate();
+                        bar.getParent().repaint();
+                        System.out.println("[INFO] Superpower bar made visible. Parent panel revalidated.");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Log any unexpected UI thread errors
+            System.err.println("[ERROR] Failed to update UI for level change: " + e.getMessage());
+        }
+    });
+}
 
     public void showStatus(String status) {
         uiState.setCurrentStatusText(status);

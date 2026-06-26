@@ -178,7 +178,7 @@ public class KeyBindingSetup {
         am.put("tripleFireAll", action(e -> {
             try {
                 // 1. Check if the superpower is fully charged
-                if (uiState.getSuperpowerCharge() < 100) {
+                if (uiState.getSuperpowerCharge() < 100 || uiState.getCurrentLevel() < UIConstants.SUPERPOWER_UNLOCK_LEVEL) {
                     System.out.println("[INFO] Superpower denied. Currently at " + uiState.getSuperpowerCharge() + "%");
                     return;
                 }
@@ -188,12 +188,15 @@ public class KeyBindingSetup {
                 int spread = UIConstants.TRIPLE_FIRE_SPREAD;
                 int a2 = clamp(base + spread, angleSlider.getMinimum(), angleSlider.getMaximum());
                 int a3 = clamp(base - spread, angleSlider.getMinimum(), angleSlider.getMaximum());
-
+                int a4 = clamp(base + 2 * spread, angleSlider.getMinimum(), angleSlider.getMaximum());
+                int a5 = clamp(base - 2 * spread, angleSlider.getMinimum(), angleSlider.getMaximum());
                 boolean[] fired = {false};
                 forEachActiveSystem((ds, type) -> {
                     fireAt(ds.getId(), base, type);
                     fireAt(ds.getId(), a2,   type);
                     fireAt(ds.getId(), a3,   type);
+                    fireAt(ds.getId(), a4,   type);
+                    fireAt(ds.getId(), a5,   type);
                     fired[0] = true;
                 });
 

@@ -67,9 +67,9 @@ public class TeamBackend {
         activeGifts.clear();
         
         gameState.setScore(300);
-        if (gameState.isEndlessMode()) {
+        /*if (gameState.isEndlessMode()) {
             gameState.setLevel(1);
-        }
+        }*/
         gameState.setStatus(true);
         levelManager.reset();
         barrageManager.reset();
@@ -102,6 +102,13 @@ public class TeamBackend {
 
         App.getPeriodicLoop().setPaused(false);
         publishScene();
+    }
+
+    public void setSameLevel() {
+        if(gameState.isEndlessMode()){
+            gameState.setLevel(1);
+            resetGame();
+        }
     }
 
     public void updateSettings(int newLevel) {

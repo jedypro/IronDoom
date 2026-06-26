@@ -86,6 +86,7 @@ public class PanelFactory {
             if (mainRouter != null) {
                 mainRouter.route("/team/reset", Params.of());
                 mainRouter.route("/team/setMode", Params.of(lastModeEndless));
+                mainRouter.route("/team/setSameLevel", Params.of());
             }
 
             navigator.showGame();

@@ -44,7 +44,7 @@ public final class UIConstants {
     public static final int AIM_DELTA_LASER   = 2;   // slower for precision
 
     // ── Triple-fire spread ───────────────────────────────────────────────────
-    public static final int TRIPLE_FIRE_SPREAD = 2;  // degrees off-center
+    public static final int TRIPLE_FIRE_SPREAD = 8;  // degrees off-center
 
     // ── Warning banner ───────────────────────────────────────────────────────
     public static final int WARNING_DISPLAY_MS = 3000;

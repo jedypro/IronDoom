@@ -77,9 +77,14 @@ public class teamRouter implements SubRouter {
             case "/getGroundY": {
                 return backend.getGameState().getGroundY();
             }
+            case "/setSameLevel": {
+                backend.setSameLevel();
+                return null;
+            }
 
             default:
                 throw new RuntimeException("Unknown ex3 route: " + subPath);
         }
     }
+    
 }
