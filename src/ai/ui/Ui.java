@@ -323,7 +323,31 @@ public class Ui {
                         bar.getParent().repaint();
                         System.out.println("[INFO] Superpower bar made visible. Parent panel revalidated.");
                     }
-                }
+                } 
+            }
+            else
+            {
+                javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+                
+                // 3. Only trigger the layout recalculation if it's currently hidden
+                if (bar != null && bar.isVisible()) {
+                    bar.setVisible(false);
+                    
+                    // Find the absolute top-level window (JFrame) that contains this bar
+                    java.awt.Window topWindow = SwingUtilities.getWindowAncestor(bar);
+                    
+                    if (topWindow != null) {
+                        // Force the entire window to recalculate sizes and redraw everything
+                        topWindow.revalidate();
+                        topWindow.repaint();
+                        System.out.println("[INFO] Superpower bar made visible. Top window revalidated.");
+                    } else if (bar.getParent() != null) {
+                        // Fallback just in case the window isn't found
+                        bar.getParent().revalidate();
+                        bar.getParent().repaint();
+                        System.out.println("[INFO] Superpower bar made visible. Parent panel revalidated.");
+                    }
+                }                
             }
         } catch (Exception e) {
             // Log any unexpected UI thread errors
