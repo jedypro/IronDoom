@@ -152,7 +152,7 @@ public class TeamBackend {
                 if (newThreat != null) {
                     threats.add(newThreat);
                 }
-                barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort());
+                barrageManager.advanceBarrageTimers(timeStep, gameState, threats, spawner, giftSpawner, activeGifts, damageables, teamUiPort(), this.gameState.isEndlessMode());
                 barrageManager.checkBarrage(threats, teamUiPort());
         }
 

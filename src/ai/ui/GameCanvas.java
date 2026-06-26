@@ -217,7 +217,8 @@ public class GameCanvas extends JPanel implements ActionListener {
         if (showAim) drawAimingLine(g2d);
         drawExplosions(g2d);
         drawFloatingTexts(g2d);
-
+        if(uiState.getCurrentLevel() >= UIConstants.SUPERPOWER_UNLOCK_LEVEL)
+        
         g2d.dispose();
     }
 
@@ -934,6 +935,9 @@ public class GameCanvas extends JPanel implements ActionListener {
             return tc;
         }
     }
+
+
+
     // =========================================================================
     // Building Fire Effects
     // =========================================================================

@@ -44,7 +44,7 @@ public final class UIConstants {
     public static final int AIM_DELTA_LASER   = 2;   // slower for precision
 
     // ── Triple-fire spread ───────────────────────────────────────────────────
-    public static final int TRIPLE_FIRE_SPREAD = 4;  // degrees off-center
+    public static final int TRIPLE_FIRE_SPREAD = 2;  // degrees off-center
 
     // ── Warning banner ───────────────────────────────────────────────────────
     public static final int WARNING_DISPLAY_MS = 3000;
@@ -58,4 +58,5 @@ public final class UIConstants {
     // ── Theme level thresholds ───────────────────────────────────────────────
     public static final int THEME_DESERT_MIN  = 4;
     public static final int THEME_ARCTIC_MIN  = 7;
+    public static final int SUPERPOWER_UNLOCK_LEVEL = 3;
 }

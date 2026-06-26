@@ -73,16 +73,45 @@ public class BatterySelector {
     }
 
     /** Cycle selection by {@code delta} positions (±1). */
-    public void cycleSelection(int delta) {
-        if (comboBox.getItemCount() == 0) return;
+public void cycleSelection(int delta, List<Damageable> damageables) {
+    if (comboBox.getItemCount() == 0) return;
+    
+    try {
         int current = Math.max(0, comboBox.getSelectedIndex());
-        int next    = (current + delta + comboBox.getItemCount()) % comboBox.getItemCount();
+        int next = (current + delta + comboBox.getItemCount()) % comboBox.getItemCount();
+        boolean isNextActive = isIdActive((Integer) comboBox.getItemAt(next), damageables);
+        System.out.println("[INFO] Attempting to cycle battery selection from index " + current + " to index " + next + " which is " + (isNextActive ? "active" : "inactive") + ".");
+        int safetyCounter = 0;
+        int maxItems = comboBox.getItemCount();
+        
+        // Loop until an active battery is found, or we checked all items (prevent deadlock)
+        while (!isNextActive && safetyCounter < maxItems) {
+            System.out.println("[INFO] Skipping inactive battery ID: " + comboBox.getItemAt(next));
+            next = (next + delta + maxItems) % maxItems;
+            safetyCounter++;
+            
+            if (safetyCounter >= maxItems) {
+                System.err.println("[WARNING] No active batteries available to select.");
+                return; // Exit to prevent infinite UI thread freeze
+            }
+            isNextActive = isIdActive((Integer) comboBox.getItemAt(next), damageables);
+        }
+        
         comboBox.setSelectedIndex(next);
         Integer selected = (Integer) comboBox.getSelectedItem();
-        if (selected != null) {
+        if (selected != null && uiState != null) {
             uiState.setSelectedBatteryId(selected);
+            System.out.println("[INFO] Battery selection successfully cycled to active ID: " + selected);
         }
+        
+    } catch (Exception e) {
+        System.err.println("[ERROR] Failed to cycle battery selection: " + e.getMessage());
     }
+}
+    public boolean isIdActive(int id, List<Damageable> damageables) {
+         AbstractDefenseSystem system = findSystem(id, damageables);
+         return system.isActive();
+    }   
 
     /** Update the info label given the current scene. */
     public void refreshInfoLabel(List<Damageable> damageables) {

@@ -30,7 +30,7 @@ public class BarrageManager {
 
     public void advanceBarrageTimers(double timeStep, GameState gameState, List<AbstractThreat> threats, 
                                      ThreatSpawner spawner, GiftSpawner giftSpawner, 
-                                     List<Gift> activeGifts, List<Damageable> damageables, TeamUiPort uiPort) {
+                                     List<Gift> activeGifts, List<Damageable> damageables, TeamUiPort uiPort, boolean isEndlessMode) {
         if (gameState.getLevel() <= 1) {
             reset();
             return;
@@ -75,8 +75,11 @@ public class BarrageManager {
                     break;
                 }
             }
-            Gift newGift = giftSpawner.spawnGift(isThereDamagedBattery);
-            activeGifts.add(newGift);
+            if(isEndlessMode) {
+                Gift newGift = giftSpawner.spawnGift(isThereDamagedBattery);
+                activeGifts.add(newGift);
+            }
+            
         }
     }
 

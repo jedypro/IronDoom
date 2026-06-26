@@ -7,6 +7,8 @@ import team.domain.Damageable;
 import team.domain.LaserBattery;
 
 import javax.swing.*;
+
+import java.awt.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
@@ -43,7 +45,7 @@ public class KeyBindingSetup {
     private final ScreenNavigator navigator;
     private final JPanel          introPanel;
     private       Timer           aimTimer;
-
+    private Timer superpowerRechargeTimer;
     public KeyBindingSetup(
             JPanel          contentPane,
             UiState         uiState,
@@ -83,7 +85,7 @@ public class KeyBindingSetup {
         bindCycleBattery(inputMap, actionMap);
         bindSingleFire(inputMap, actionMap);
         bindTripleFire(inputMap, actionMap);
-        bindFireAll(inputMap, actionMap);
+        //bindFireAll(inputMap, actionMap);
         bindTripleFireAll(inputMap, actionMap);
         bindToggleAimLine(inputMap, actionMap);
         bindTogglePause(inputMap, actionMap);
@@ -139,15 +141,17 @@ public class KeyBindingSetup {
     }
 
     private void bindCycleBattery(InputMap im, ActionMap am) {
+        
+
         im.put(KeyStroke.getKeyStroke("pressed UP"), "selectPrevBattery");
         am.put("selectPrevBattery", action(e -> {
             if (UIConstants.CARD_GAME.equals(uiState.getCurrentScreen()))
-                batterySelector.cycleSelection(-1);
+                batterySelector.cycleSelection(-1, sceneData.getDamageables());
         }));
         im.put(KeyStroke.getKeyStroke("pressed DOWN"), "selectNextBattery");
         am.put("selectNextBattery", action(e -> {
             if (UIConstants.CARD_GAME.equals(uiState.getCurrentScreen()))
-                batterySelector.cycleSelection(+1);
+                batterySelector.cycleSelection(+1, sceneData.getDamageables());
         }));
     }
 
@@ -169,33 +173,93 @@ public class KeyBindingSetup {
         }));
     }
 
-    private void bindFireAll(InputMap im, ActionMap am) {
-        im.put(KeyStroke.getKeyStroke("pressed C"), "fireAll");
-        am.put("fireAll", action(e -> {
-            int angle = angleSlider.getValue();
-            forEachActiveSystem((ds, type) -> fireAt(ds.getId(), angle, type));
+  private void bindTripleFireAll(InputMap im, ActionMap am) {
+        im.put(KeyStroke.getKeyStroke("pressed C"), "tripleFireAll");
+        am.put("tripleFireAll", action(e -> {
+            try {
+                // 1. Check if the superpower is fully charged
+                if (uiState.getSuperpowerCharge() < 100) {
+                    System.out.println("[INFO] Superpower denied. Currently at " + uiState.getSuperpowerCharge() + "%");
+                    return;
+                }
+
+                // 2. Execute firing logic
+                int base   = angleSlider.getValue();
+                int spread = UIConstants.TRIPLE_FIRE_SPREAD;
+                int a2 = clamp(base + spread, angleSlider.getMinimum(), angleSlider.getMaximum());
+                int a3 = clamp(base - spread, angleSlider.getMinimum(), angleSlider.getMaximum());
+
+                boolean[] fired = {false};
+                forEachActiveSystem((ds, type) -> {
+                    fireAt(ds.getId(), base, type);
+                    fireAt(ds.getId(), a2,   type);
+                    fireAt(ds.getId(), a3,   type);
+                    fired[0] = true;
+                });
+
+                // 3. Reset UI and internal state if fired successfully
+                if (fired[0]) {
+                    if (canvas != null) {
+                        canvas.triggerScreenShake(400, 15);
+                    }
+                    
+                    uiState.setSuperpowerCharge(0); // Reset internal state
+                    
+                    // --- Update the Graphical Bar ---
+                    javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+                    if (bar != null) {
+                        bar.setValue(0);
+                        bar.setString("CHARGING... 0%");
+                        bar.setForeground(new java.awt.Color(255, 140, 0)); // Orange
+                        System.out.println("[INFO] UI Progress Bar successfully reset to 0%.");
+                    } else {
+                        // If you see this error, the KeyBindingSetup is missing the reference
+                        System.err.println("[ERROR] JProgressBar reference is null in KeyBindingSetup!");
+                    }
+                    
+                    startSuperpowerRecharge(); // Start the timer
+                }
+                
+            } catch (Exception ex) {
+                System.err.println("[ERROR] Failed to execute Triple Fire: " + ex.getMessage());
+            }
         }));
     }
 
-    private void bindTripleFireAll(InputMap im, ActionMap am) {
-        im.put(KeyStroke.getKeyStroke("pressed V"), "tripleFireAll");
-        am.put("tripleFireAll", action(e -> {
-            int base   = angleSlider.getValue();
-            int spread = UIConstants.TRIPLE_FIRE_SPREAD;
-            int a2 = clamp(base + spread, angleSlider.getMinimum(), angleSlider.getMaximum());
-            int a3 = clamp(base - spread, angleSlider.getMinimum(), angleSlider.getMaximum());
-
-            boolean[] fired = {false};
-            forEachActiveSystem((ds, type) -> {
-                fireAt(ds.getId(), base, type);
-                fireAt(ds.getId(), a2,   type);
-                fireAt(ds.getId(), a3,   type);
-                fired[0] = true;
-            });
-            if (fired[0] && canvas != null) {
-                canvas.triggerScreenShake(400, 15);
+    private void startSuperpowerRecharge() {
+        try {
+            if (superpowerRechargeTimer != null && superpowerRechargeTimer.isRunning()) {
+                superpowerRechargeTimer.stop();
             }
-        }));
+
+            superpowerRechargeTimer = new javax.swing.Timer(100, e -> {
+                int currentCharge = uiState.getSuperpowerCharge();
+                javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+                
+                if (currentCharge < 100) {
+                    uiState.setSuperpowerCharge(currentCharge + 1); // Internal state
+                    
+                    if (bar != null) {
+                        bar.setValue(currentCharge + 1); // Update UI
+                        bar.setString("CHARGING... " + (currentCharge + 1) + "%");
+                    }
+                } else {
+                    // Reached 100%
+                    superpowerRechargeTimer.stop();
+                    if (bar != null) {
+                        bar.setValue(100);
+                        bar.setString("SUPERPOWER READY (Press C)");
+                        bar.setForeground(new java.awt.Color(0, 200, 200)); // Cyan
+                    }
+                    System.out.println("[INFO] Superpower fully recharged.");
+                }
+            });
+            
+            superpowerRechargeTimer.start();
+            
+        } catch (Exception ex) {
+            System.err.println("[ERROR] Failed to execute superpower recharge timer: " + ex.getMessage());
+        }
     }
 
     private void bindToggleAimLine(InputMap im, ActionMap am) {

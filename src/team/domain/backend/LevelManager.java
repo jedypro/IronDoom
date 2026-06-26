@@ -8,8 +8,9 @@ public class LevelManager {
     private double levelElapsedTime = 0;
     private boolean levelCompleted = false;
 
-    private static final double BASE_LEVEL_DURATION_SECONDS = 10.0;
+    private static final double BASE_LEVEL_DURATION_SECONDS = 20.0;
     private static final double LEVEL_DURATION_INCREMENT_SECONDS = 8.0;
+    private static final double MAX_LEVEL_DURATION_SECONDS = 60.0;
 
     public void reset() {
         levelElapsedTime = 0;
@@ -18,6 +19,7 @@ public class LevelManager {
 
     public boolean isTimeUp(int level) {
         double levelDuration = BASE_LEVEL_DURATION_SECONDS + (LEVEL_DURATION_INCREMENT_SECONDS * level);
+        levelDuration = Math.min(levelDuration, MAX_LEVEL_DURATION_SECONDS);
         return levelElapsedTime >= levelDuration;
     }
 

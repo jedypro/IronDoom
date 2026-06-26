@@ -29,7 +29,11 @@ public class UiState {
     // ── Sound ────────────────────────────────────────────────────────────────
     private boolean soundEnabled = true;
     private boolean isEndlessMode = false;
+    // Inside UiState.java
+    private int superpowerCharge = 100; // Starts fully charged (0 to 100%)
 
+    // Variable to store the progress bar reference
+    private javax.swing.JProgressBar superpowerBar;
     // =========================================================================
     // Getters / setters
     // =========================================================================
@@ -72,4 +76,23 @@ public class UiState {
 
     public boolean isEndlessMode() { return isEndlessMode; }
     public void setMode(boolean isEndlessMode) { this.isEndlessMode = isEndlessMode; }
+
+    public int getSuperpowerCharge() {
+    return superpowerCharge;
+    }
+
+    public void setSuperpowerCharge(int charge) {
+        if(!isPaused())
+            {this.superpowerCharge = charge;}
+    }
+
+    // Setter - The missing function! Saves the progress bar into the state
+    public void setSuperpowerBar(javax.swing.JProgressBar superpowerBar) {
+        this.superpowerBar = superpowerBar;
+    }
+
+    // Getter - Allows other classes to retrieve the progress bar
+    public javax.swing.JProgressBar getSuperpowerBar() {
+        return superpowerBar;
+    }
 }

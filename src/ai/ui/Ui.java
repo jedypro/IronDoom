@@ -164,11 +164,25 @@ public class Ui {
                 new JLabel("Angle (0-180):"), angleSlider,
                 fireButton, toggleAimBtn);
 
+        // 1. Create and style the progress bar
+        javax.swing.JProgressBar superpowerBar = new javax.swing.JProgressBar(0, 100);
+        superpowerBar.setValue(100);
+        superpowerBar.setStringPainted(true);
+        superpowerBar.setString("SUPERPOWER READY (Press C)");
+        superpowerBar.setForeground(new java.awt.Color(0, 200, 200));
+        superpowerBar.setPreferredSize(new java.awt.Dimension(220, 25)); // Resized to fit nicely in the bar
+        
+       if (uiState != null) {
+            uiState.setSuperpowerBar(superpowerBar);
+                System.out.println("[INFO] Superpower progress bar initialized and bound to UiState.");
+        }
+
         JPanel controls = new JPanel();
         controls.setOpaque(false);
         controls.setLayout(new BoxLayout(controls, BoxLayout.Y_AXIS));
         controls.add(topBar);
         controls.add(botBar);
+        controls.add(superpowerBar); // Add the superpower bar to the controls panel
 
         JPanel gameScreen = new JPanel(new BorderLayout());
         gameScreen.add(gameCanvas, BorderLayout.CENTER);
