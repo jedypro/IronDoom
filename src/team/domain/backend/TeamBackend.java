@@ -331,6 +331,7 @@ public class TeamBackend {
                 params = new BallisticTargetingParams(angle);
                 newDefense = defenseSystem.attemptDefense(params);
             } else if ("LASER".equalsIgnoreCase(defenseType) && defenseSystem instanceof LaserBattery) {
+                ((LaserBattery) defenseSystem).setCurrentAimAngle(angle);
                 params = new LaserTargetingParams(angle);
                 newDefense = defenseSystem.attemptDefense(params);
             } else {

@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public class LaserBattery extends AbstractDefenseSystem implements Damageable {
     private int laserChargesAvailable = 50; // Default starting ammo for laser
-    public static final double LASER_RANGE = 1500.0; // How far the laser reaches
+    public static final double LASER_RANGE = 1000.0; // How far the laser reaches
     public static final double LASER_DURATION_SECONDS = 2.0; // How long the laser stays visible
     private double currentAimAngle = 90.0; // ברירת מחדל למעלה
 
