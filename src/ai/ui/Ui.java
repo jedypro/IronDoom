@@ -304,7 +304,8 @@ public class Ui {
             
             if (level >= UIConstants.SUPERPOWER_UNLOCK_LEVEL) {
                 javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
-                
+                if(!uiState.isEndlessMode())
+                {uiState.setSuperpowerCharge(100);}
                 // 3. Only trigger the layout recalculation if it's currently hidden
                 if (bar != null && !bar.isVisible()) {
                     bar.setVisible(true);
@@ -323,6 +324,7 @@ public class Ui {
                         bar.getParent().repaint();
                         System.out.println("[INFO] Superpower bar made visible. Parent panel revalidated.");
                     }
+                    
                 } 
             }
             else
