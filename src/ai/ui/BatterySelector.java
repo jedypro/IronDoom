@@ -79,7 +79,7 @@ public void cycleSelection(int delta, List<Damageable> damageables) {
     try {
         int current = Math.max(0, comboBox.getSelectedIndex());
         int next = (current + delta + comboBox.getItemCount()) % comboBox.getItemCount();
-        boolean isNextActive = isIdActive((Integer) comboBox.getItemAt(next), damageables);
+        boolean isNextActive = canIdShoot((Integer) comboBox.getItemAt(next), damageables);
         System.out.println("[INFO] Attempting to cycle battery selection from index " + current + " to index " + next + " which is " + (isNextActive ? "active" : "inactive") + ".");
         int safetyCounter = 0;
         int maxItems = comboBox.getItemCount();
@@ -94,7 +94,7 @@ public void cycleSelection(int delta, List<Damageable> damageables) {
                 System.err.println("[WARNING] No active batteries available to select.");
                 return; // Exit to prevent infinite UI thread freeze
             }
-            isNextActive = isIdActive((Integer) comboBox.getItemAt(next), damageables);
+            isNextActive = canIdShoot((Integer) comboBox.getItemAt(next), damageables);
         }
         
         comboBox.setSelectedIndex(next);
@@ -108,9 +108,9 @@ public void cycleSelection(int delta, List<Damageable> damageables) {
         System.err.println("[ERROR] Failed to cycle battery selection: " + e.getMessage());
     }
 }
-    public boolean isIdActive(int id, List<Damageable> damageables) {
+    public boolean canIdShoot(int id, List<Damageable> damageables) {
          AbstractDefenseSystem system = findSystem(id, damageables);
-         return system.isActive();
+         return system.isActive() && system.getInventory()>0;
     }   
 
     /** Update the info label given the current scene. */

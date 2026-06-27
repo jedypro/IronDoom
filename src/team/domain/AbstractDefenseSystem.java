@@ -26,6 +26,9 @@ public abstract class AbstractDefenseSystem extends IdentifiedObject {
     public boolean isActive() {
         return isActive;
     }
+
+    public abstract int getInventory();
+
     public void setX(int x) {
         this.x = x;
     }

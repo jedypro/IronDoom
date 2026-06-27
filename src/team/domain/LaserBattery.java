@@ -65,9 +65,6 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
             // Create a LightShield at the battery's position
             LightShield laser = new LightShield(UUID.randomUUID().hashCode(), this, angle, LASER_RANGE, LASER_DURATION_SECONDS, this.getId());
             laserChargesAvailable--; // Lasers consume ammo
-            if(laserChargesAvailable <= 0) {
-                this.isActive = false; // Deactivate battery if out of ammo
-            }
             return laser;
         }
         return null; // This battery only fires lasers
@@ -77,5 +74,11 @@ public class LaserBattery extends AbstractDefenseSystem implements Damageable {
     public void repair() {
         this.isActive = true; // Reactivate the battery
         this.laserChargesAvailable = laserChargesAvailable + 30; // Repair adds 30 laser charges, can be adjusted as needed
+    }
+
+    @Override
+    public int getInventory()
+    {
+        return laserChargesAvailable;
     }
 }

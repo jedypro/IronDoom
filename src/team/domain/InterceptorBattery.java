@@ -23,6 +23,7 @@ public class InterceptorBattery extends AbstractDefenseSystem implements Damagea
     }
     public void setMissilesAvailable(int missilesAvailable) {
         this.missilesAvailable = missilesAvailable;
+        
     }
 
     @Override
@@ -67,8 +68,7 @@ public DefenseEntity attemptDefense(TargetingParams params) {
             missile.setMovementStrategy(new BallisticMovementStrategy());
 
             missilesAvailable--;
-            if(missilesAvailable <= 0)
-                {this.isActive = false; }
+            
             return missile;
         }
         return null;
@@ -78,6 +78,12 @@ public DefenseEntity attemptDefense(TargetingParams params) {
 public void repair() {
     this.isActive = true; // Reactivate the battery
     this.missilesAvailable = missilesAvailable > 60 ? missilesAvailable  : 60; 
+}
+
+@Override
+public int getInventory()
+{
+    return missilesAvailable;
 }
 
 }
