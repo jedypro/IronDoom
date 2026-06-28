@@ -83,19 +83,13 @@ public class PanelFactory {
         JButton exit      = new JButton("Exit");
 
         playAgain.addActionListener(e -> {
+            if (canvas != null) {
+                canvas.clearAllEffects();
+            }
             if (mainRouter != null) {
                 mainRouter.route("/team/reset", Params.of());
                 mainRouter.route("/team/setMode", Params.of(lastModeEndless));
                 mainRouter.route("/team/setSameLevel", Params.of());
-            }
-
-            navigator.showGame();
-        });
-        playAgain.addActionListener(e -> {
-            canvas.clearFloatingTexts();
-            if (mainRouter != null) {
-                mainRouter.route("/team/reset", Params.of());
-                mainRouter.route("/team/setMode", Params.of(lastModeEndless));
             }
             navigator.showGame();
         });
@@ -129,6 +123,9 @@ public class PanelFactory {
 
         JButton next = WidgetFactory.createStyledButton("To the next level", 18);
         next.addActionListener(e -> {
+            if (canvas != null) {
+                canvas.clearAllEffects();
+            }
             if (mainRouter != null) mainRouter.route("/team/nextLevel", Params.of());
             navigator.showGame();
         });

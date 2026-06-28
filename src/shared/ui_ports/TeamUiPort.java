@@ -52,6 +52,8 @@ public abstract class TeamUiPort {
         throw new UnsupportedOperationException("Unimplemented method 'showGiftCollected'");
     }
 
+    public abstract void resetScoreState();
+
 
 
 }

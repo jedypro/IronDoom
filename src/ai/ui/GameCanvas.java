@@ -154,6 +154,13 @@ public class GameCanvas extends JPanel implements ActionListener {
         floatingTexts.clear();
     }
 
+    public void clearAllEffects() {
+        floatingTexts.clear();
+        explosions.clear();
+        burningBuildings.clear();
+        screenShakeEndTime = 0;
+    }
+
     public void triggerScreenShake(int durationMs, int magnitude) {
         screenShakeEndTime    = System.currentTimeMillis() + durationMs;
         currentShakeMagnitude = magnitude;

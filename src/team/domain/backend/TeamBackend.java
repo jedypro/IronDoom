@@ -60,13 +60,15 @@ public class TeamBackend {
     }
 
     public void resetGame() {
+        teamUiPort().resetScoreState();
+
         threats.clear();
         populationManager.reset();
         activeInterceptors.clear();
         damageables.clear();
         activeGifts.clear();
         
-        gameState.setScore(300);
+        gameState.setScore(DEFAULT_SCORE);
         /*if (gameState.isEndlessMode()) {
             gameState.setLevel(1);
         }*/
@@ -112,12 +114,15 @@ public class TeamBackend {
     }
 
     public void updateSettings(int newLevel) {
+        teamUiPort().resetScoreState();
+
         this.gameState.setLevel(newLevel);
         levelManager.reset();
         barrageManager.reset();
         
         populationManager.reset();
         this.activeGifts.clear();
+        this.activeInterceptors.clear();
 
         this.threats.clear();
         threatsRegister();
@@ -125,6 +130,8 @@ public class TeamBackend {
         this.damageables.clear();
         assetsRegister();
         
+        this.gameState.setScore(DEFAULT_SCORE);
+
         int groundY = gameState.getGroundY();
         this.damageables.addAll(assetSpawner.spawnDefenseSystems(newLevel, groundY));
         this.damageables.addAll(assetSpawner.spawnRegularAssets(newLevel, groundY));

@@ -23,6 +23,7 @@ public class ScreenNavigator {
     private final CardLayout          cardLayout;
     private final JPanel              rootPanel;
     private final AnimationController animation;
+    private final GameCanvas          gameCanvas;
     private final MainRouter          mainRouter;
 
     // Widgets whose text we need to flip on pause/resume
@@ -34,13 +35,15 @@ public class ScreenNavigator {
             CardLayout          cardLayout,
             JPanel              rootPanel,
             AnimationController animation,
-            MainRouter          mainRouter) {
+            MainRouter          mainRouter,
+            GameCanvas          gameCanvas) {
 
         this.uiState    = uiState;
         this.cardLayout = cardLayout;
         this.rootPanel  = rootPanel;
         this.animation  = animation;
         this.mainRouter = mainRouter;
+        this.gameCanvas = gameCanvas;
     }
 
     public void setPauseButton(JButton btn)        { this.pauseButton       = btn; }
@@ -63,6 +66,9 @@ public class ScreenNavigator {
     }
 
     public void showGameFromModeSelect(boolean endlessMode) {
+        if (gameCanvas != null) {
+            gameCanvas.clearAllEffects();
+        }
         uiState.setCurrentScreen(UIConstants.CARD_GAME);
         uiState.setSettingsScreenActive(false);
         uiState.setPaused(false);

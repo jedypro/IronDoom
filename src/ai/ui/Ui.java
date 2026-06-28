@@ -138,7 +138,7 @@ public class Ui {
         CardLayout cardLayout = new CardLayout();
         JPanel     rootPanel  = new JPanel(cardLayout);
 
-        navigator = new ScreenNavigator(uiState, cardLayout, rootPanel, animation, mainRouter);
+        navigator = new ScreenNavigator(uiState, cardLayout, rootPanel, animation, mainRouter, gameCanvas);
         navigator.setPauseButton(pauseBtn);
         animation.setAimTimer(null); // will be set after key-binding setup
 
@@ -147,15 +147,18 @@ public class Ui {
         JButton settingsBtn = new JButton("Settings");
         JButton restartBtn  = new JButton("Restart");
 
-        homeBtn.addActionListener(e    -> navigator.showIntro());
+        homeBtn.addActionListener(e -> {
+            if (gameCanvas != null) gameCanvas.clearAllEffects();
+            navigator.showIntro();
+        });
         restartBtn.addActionListener(e -> {
-            gameCanvas.clearFloatingTexts();
-            if (mainRouter != null) mainRouter.route("/team/reset", Params.of());
-            mainRouter.route("/team/setSameLevel", Params.of());
-            
+            if (gameCanvas != null) gameCanvas.clearAllEffects();
+            if (mainRouter != null) {
+                mainRouter.route("/team/reset", Params.of());
+                mainRouter.route("/team/setSameLevel", Params.of());
+            }
         });
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_GAME));
-        restartBtn.addActionListener(e  -> { if (mainRouter != null) mainRouter.route("/team/reset", Params.of()); });
         pauseBtn.addActionListener(e    -> navigator.togglePause());
 
         JPanel topBar = flowPanel(14, homeBtn, settingsBtn, restartBtn, pauseBtn,
@@ -261,31 +264,26 @@ public class Ui {
         return uiState.isSoundEnabled();
     }
 
+    public void resetScoreState() {
+        uiState.setLastScore(-1); // Reset to initial value to prevent false diffs
+        if (gameCanvas != null) {
+            gameCanvas.clearAllEffects();
+        }
+    }
+
     public void updateScore(int score) {
         int last = uiState.getLastScore();
         if (last != -1 && score < last && gameCanvas != null) {
             int diff = last - score;
             Point hitPoint = null;
-            if (!recentExplosionPoints.isEmpty()) {
-                hitPoint = recentExplosionPoints.remove(recentExplosionPoints.size() - 1);
-            }
-            final Point targetPoint = hitPoint;
-            final String floatingText = "-" + diff;
-            SwingUtilities.invokeLater(() -> {
-                if (gameCanvas != null) {
-                    if (targetPoint != null) {
-                        gameCanvas.addFloatingText(targetPoint.x, targetPoint.y, floatingText, Color.RED, 2000);
-                    } else {
-                        gameCanvas.addFloatingText(600, 200, floatingText, Color.RED, 2000);
-                    }
-                }
-            });
+            if (!recentExplosionPoints.isEmpty()) hitPoint = recentExplosionPoints.remove(recentExplosionPoints.size() - 1);
+            
+            String floatingText = "-" + diff;
+            if (hitPoint != null) gameCanvas.addFloatingText(hitPoint.x, hitPoint.y, floatingText, Color.RED, 2000);
+            else gameCanvas.addFloatingText(600, 200, floatingText, Color.RED, 2000);
         }
-
         uiState.setLastScore(score);
-        if (scoreLabel != null) {
-            SwingUtilities.invokeLater(() -> scoreLabel.setText("Score: " + score));
-        }
+        if (scoreLabel != null) scoreLabel.setText("Score: " + score);
     }
 
     public void updateLevel(int level) {
@@ -376,6 +374,7 @@ public class Ui {
 
     public void showLevelComplete(String message) {
         SwingUtilities.invokeLater(() -> {
+            if (gameCanvas != null) gameCanvas.clearAllEffects();
             if (levelCompleteTitleLabel != null) levelCompleteTitleLabel.setText(message);
             navigator.showLevelComplete();
         });
@@ -440,6 +439,7 @@ public class Ui {
 
         SwingUtilities.invokeLater(() -> {
             if (!running || score <= 0) {
+                if (gameCanvas != null) gameCanvas.clearAllEffects();
                 navigator.showGameOver();
             } else if (!uiState.isSettingsScreenActive()
                     && !UIConstants.CARD_INTRO.equals(uiState.getCurrentScreen())

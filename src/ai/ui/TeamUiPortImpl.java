@@ -142,4 +142,9 @@ public class TeamUiPortImpl extends TeamUiPort {
     public void showGiftCollected(String message) {
         SwingUtilities.invokeLater(() -> ui.showGiftCollected(message));
     }
+
+    @Override
+    public void resetScoreState() {
+        SwingUtilities.invokeLater(() -> ui.resetScoreState());
+    }
 }
