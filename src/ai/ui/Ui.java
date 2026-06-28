@@ -205,6 +205,7 @@ public class Ui {
         rootPanel.add(panelFactory.createLevelCompletePanel(), UIConstants.CARD_LEVEL_COMPLETE);
         rootPanel.add(panelFactory.createSettingsPanel(),   UIConstants.CARD_SETTINGS);
         rootPanel.add(panelFactory.createModeSelectPanel(), UIConstants.CARD_MODE_SELECT);
+        rootPanel.add(panelFactory.createControlsPanel(),   UIConstants.CARD_CONTROLS);
         
         navigator.setDifficultySpinner(panelFactory.getDifficultySpinner());
 

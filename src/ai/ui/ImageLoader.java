@@ -13,15 +13,18 @@ public class ImageLoader {
 
     private static final String[] CIVILIAN_FILES = { "oz.png", "yedidya.png", "gimdani.png" };
     private static final String   BACKGROUND_FILE = "open_pic.png";
+    private static final String   CONTROLLERS_FILE = "controllers.png";
     private static final String   IMAGE_BASE_PATH  = "/ai/ui/Images/";
     private static final String   IMAGE_FALLBACK_PATH = "src/ai/ui/Images/";
 
     private final Image   backgroundImage;
     private final Image[] civilianImages;
+    private final Image   controllersImage;
 
     public ImageLoader() {
         backgroundImage = loadImage(BACKGROUND_FILE);
         civilianImages  = new Image[CIVILIAN_FILES.length];
+        controllersImage = loadImage(CONTROLLERS_FILE);
         for (int i = 0; i < CIVILIAN_FILES.length; i++) {
             civilianImages[i] = loadImage(CIVILIAN_FILES[i]);
         }
@@ -38,6 +41,11 @@ public class ImageLoader {
      */
     public Image getCivilianImage(int index) {
         return civilianImages[index % civilianImages.length];
+    }
+
+    /** Returns the controllers mapping image, or {@code null} if unavailable. */
+    public Image getControllersImage() {
+        return controllersImage;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

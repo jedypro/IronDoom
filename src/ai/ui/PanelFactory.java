@@ -57,13 +57,30 @@ public class PanelFactory {
 
         JButton playBtn     = WidgetFactory.createStyledButton("Play", 20);
         JButton settingsBtn = WidgetFactory.createStyledButton("Settings", 20);
+        JButton controlsBtn = WidgetFactory.createStyledButton("Controls", 20);
 
 
         
         playBtn.addActionListener(e -> navigator.showModeSelect());
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_INTRO));
+        controlsBtn.addActionListener(e -> navigator.showControls());
 
-        JPanel buttons = opaqueFlow(24, playBtn, settingsBtn);
+        // Use GridBagLayout for a stable vertical stack of buttons that respects preferred sizes.
+        JPanel buttons = new JPanel(new GridBagLayout());
+        buttons.setOpaque(false);
+        GridBagConstraints gbcButtons = new GridBagConstraints();
+        gbcButtons.gridx = 0;
+        gbcButtons.gridy = 0;
+        gbcButtons.insets = new Insets(0, 0, 15, 0); // Vertical gap
+
+        buttons.add(playBtn, gbcButtons);
+
+        gbcButtons.gridy++;
+        buttons.add(settingsBtn, gbcButtons);
+
+        gbcButtons.gridy++;
+        gbcButtons.insets = new Insets(0, 0, 0, 0); // No gap after last button
+        buttons.add(controlsBtn, gbcButtons);
 
         GridBagConstraints c = gbc(0, 0, new Insets(0, 0, 16, 0));
         panel.add(title, c);
@@ -209,6 +226,68 @@ public class PanelFactory {
         c.gridy = 1; panel.add(levelBtn,  c);
         c.gridy = 2; panel.add(endlessBtn,c);
         c.gridy = 3; panel.add(backBtn,   c);
+
+        return panel;
+    }
+
+    public JPanel createControlsPanel() {
+        JPanel panel = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                // Fill background
+                g.setColor(UIConstants.COLOR_BACKGROUND);
+                g.fillRect(0, 0, getWidth(), getHeight());
+
+                Image img = imageLoader.getControllersImage();
+                if (img != null) {
+                    // We need to calculate the available area, which is the 'CENTER' part of the BorderLayout.
+                    // We subtract the space used by the 'SOUTH' component (the button panel).
+                    Component southComponent = ((BorderLayout)getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+                    int bottomInset = 0;
+                    if (southComponent != null && southComponent.isVisible()) {
+                        bottomInset = southComponent.getPreferredSize().height;
+                    }
+
+                    int availableWidth = getWidth();
+                    int availableHeight = getHeight() - bottomInset;
+
+                    int imgWidth = img.getWidth(null);
+                    int imgHeight = img.getHeight(null);
+
+                    if (imgWidth <= 0 || imgHeight <= 0) { // Avoid division by zero
+                        g.setColor(Color.WHITE);
+                        g.drawString("Controllers image not found.", 20, 20);
+                        return;
+                    }
+
+                    // Calculate scale to fit image within the available space, maintaining aspect ratio
+                    double scale = Math.min((double) availableWidth / imgWidth, (double) availableHeight / imgHeight);
+                    scale *= 0.95; // Add a 5% padding around the image
+
+                    int newWidth = (int) (imgWidth * scale);
+                    int newHeight = (int) (imgHeight * scale);
+
+                    // Center the scaled image in the available area
+                    int x = (availableWidth - newWidth) / 2;
+                    int y = (availableHeight - newHeight) / 2;
+
+                    g.drawImage(img, x, y, newWidth, newHeight, this);
+                } else {
+                    // Fallback if image is not loaded
+                    g.setColor(Color.WHITE);
+                    g.drawString("Controllers image not found.", 20, 20);
+                }
+            }
+        };
+        panel.setOpaque(false); // Let paintComponent handle it
+
+        JButton backBtn = WidgetFactory.createStyledButton("Back", 18);
+        backBtn.addActionListener(e -> navigator.showIntro());
+
+        JPanel buttonPanel = opaqueFlow(0, backBtn);
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
+        panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
     }

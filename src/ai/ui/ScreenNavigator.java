@@ -152,6 +152,10 @@ public class ScreenNavigator {
         cardLayout.show(rootPanel, UIConstants.CARD_MODE_SELECT);
     }
 
+    public void showControls() {
+        cardLayout.show(rootPanel, UIConstants.CARD_CONTROLS);
+    }
+
 
 
     // ── Pause / resume toggle (used by pauseButton and Space key) ────────────
