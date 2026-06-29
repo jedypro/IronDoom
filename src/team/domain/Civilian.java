@@ -25,8 +25,6 @@ public class Civilian {
     private static final double GRAVITY  = 900.0; // px/sec²
     private static final double AIR_DRAG = 0.98;  // חיכוך אוויר לכל פריים
 
-    // בנאי דמה ריק לחלוטין עבור התוקף
-    public Civilian() {}
 
     public Civilian(int id, double startX, GroundAsset targetBuilding) {
         this.id = id;
@@ -73,7 +71,7 @@ public class Civilian {
         if (state == State.SEEKING_SHELTER) {
             if (targetBuilding != null) {
                 double targetX = targetBuilding.getX() + targetBuilding.getWidth() / 2.0;
-                if (Math.abs(x - targetX) < (speed * timeStep)) {
+                if (Math.abs(x - targetX) < (speed * timeStep)) {//האם בצעד הבא יגיע למבנה?
                     
                     if (Math.random() < 0.7) {
                         goToRoof();
@@ -81,7 +79,7 @@ public class Civilian {
                         state = State.HIDING;
                     }
                 } else {
-                    x += direction * (speed * timeStep);
+                    x += direction * (speed * timeStep);// מזיז את האזרח בכיוון המבנה
                 }
             } else {
                 state = State.FLEEING;
@@ -131,7 +129,7 @@ public class Civilian {
             // יוצא מהמבנה ובורח לצד אקראי
             this.state = State.FLEEING;
             this.direction = Math.random() > 0.5 ? 1 : -1;
-            if (this.targetBuilding != null) {
+            if (this.targetBuilding != null) {//למקרה שהיה בעיה בשמירת מבנים והמבנה נמחק
                 this.x = this.targetBuilding.getX() + this.targetBuilding.getWidth() / 2.0;
             }
 
