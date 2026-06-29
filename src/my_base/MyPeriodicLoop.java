@@ -15,6 +15,11 @@ public class MyPeriodicLoop extends PeriodicLoop {
 		// Let the super class do its work first
 		super.execute();
 		//System.out.println("Periodic loop tick, elapsedTime=" + elapsedTime());
-		App.mainRouter().route("/team/doStep", Params.of(0.03));
+		try {
+            App.mainRouter().route("/team/doStep", Params.of(0.03));
+        } catch (Throwable t) {
+            System.err.println("[" + java.time.LocalDateTime.now() + "] FATAL TICK ERROR (game survived, tick skipped): ");
+            t.printStackTrace();
+        }
 	}
 }
