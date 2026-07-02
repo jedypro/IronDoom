@@ -12,9 +12,6 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
     private LaserBattery source;
     private int sourceBatteryId; // To track which battery launched this missile
 
-    public LightShield() {
-        super(0); // Default constructor for serialization or frameworks that require it
-    }
 
     public LightShield(int id, LaserBattery source, double angle, double length, double duration, int sourceBatteryId) {
         super(id);
@@ -86,39 +83,10 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
 
     // Checks if the laser beam intersects with a given threat's bounding box.
     // For simplicity, this checks if the threat's center is "near" the laser line segment.
-    public boolean intersects(AbstractThreat threat) {
-        double p1x = x; double p1y = y; // Laser start
-        double p2x = getEndX(); double p2y = getEndY(); // Laser end
-        double cx = threat.getX() + threat.getLength() / 2.0; // Threat center X
-        double cy = threat.getY() + threat.getHeight() / 2.0; // Threat center Y
-        double threatRadius = Math.max(threat.getLength(), threat.getHeight()) / 2.0;
-        double collisionThreshold = threatRadius + 5; // Add a small buffer for collision
-
-        double L2 = (p2x - p1x) * (p2x - p1x) + (p2y - p1y) * (p2y - p1y);
-        if (L2 == 0.0) { // Laser is a point
-            return Math.sqrt((cx - p1x) * (cx - p1x) + (cy - p1y) * (cy - p1y)) < collisionThreshold;
-        }
-
-        // Project threat center onto the line segment
-        double t = ((cx - p1x) * (p2x - p1x) + (cy - p1y) * (p2y - p1y)) / L2;
-        t = Math.max(0, Math.min(1, t)); // Clamp t to [0, 1] to stay within segment
-
-        double closestX = p1x + t * (p2x - p1x);
-        double closestY = p1y + t * (p2y - p1y);
-
-        // Calculate distance from threat center to the closest point on the segment
-        double distance = Math.sqrt((cx - closestX) * (cx - closestX) + (cy - closestY) * (cy - closestY));
-
-        return distance < collisionThreshold;
-    }
-
-    public boolean intersects(Gift gift) {
-        double p1x = x; double p1y = y; // התחלת הלייזר
-        double p2x = getEndX(); double p2y = getEndY(); // סוף הלייזר
-        double cx = gift.getX() + gift.getWidth() / 2.0; // מרכז המתנה X
-        double cy = gift.getY() + gift.getHeight() / 2.0; // מרכז המתנה Y
-        double giftRadius = Math.max(gift.getWidth(), gift.getHeight()) / 2.0;
-        double collisionThreshold = giftRadius + 5; // תוספת ריווח קטנה
+    private boolean intersects(double cx, double cy, double radius) {
+        double p1x = x; double p1y = y;
+        double p2x = getEndX(); double p2y = getEndY();
+        double collisionThreshold = radius + 5;
 
         double L2 = (p2x - p1x) * (p2x - p1x) + (p2y - p1y) * (p2y - p1y);
         if (L2 == 0.0) {
@@ -133,5 +101,21 @@ public class LightShield extends IdentifiedObject implements DefenseEntity {
 
         double distance = Math.sqrt((cx - closestX) * (cx - closestX) + (cy - closestY) * (cy - closestY));
         return distance < collisionThreshold;
+    }
+
+    // עכשיו הפונקציות המקוריות נראות הרבה יותר נקיות:
+
+    public boolean intersects(AbstractThreat threat) {
+        double cx = threat.getX() + threat.getLength() / 2.0;
+        double cy = threat.getY() + threat.getHeight() / 2.0;
+        double radius = Math.max(threat.getLength(), threat.getHeight()) / 2.0;
+        return intersects(cx, cy, radius);
+    }
+
+    public boolean intersects(Gift gift) {
+        double cx = gift.getX() + gift.getWidth() / 2.0;
+        double cy = gift.getY() + gift.getHeight() / 2.0;
+        double radius = Math.max(gift.getWidth(), gift.getHeight()) / 2.0;
+        return intersects(cx, cy, radius);
     }
 }

@@ -121,8 +121,8 @@ public class GameCanvas extends JPanel implements ActionListener {
                 if (d instanceof GroundAsset) {
                     GroundAsset asset = (GroundAsset) d;
                     // אם הפיצוץ קרוב לבניין (ריווח של 20 פיקסלים)
-                    if (x >= asset.getX() - 20 && x <= asset.getX() + asset.getWidth() + 20 &&
-                        y >= asset.getY() - 20 && y <= asset.getY() + asset.getHeight() + 20) {
+                    if (x >= asset.getX() - 10 && x <= asset.getX() + asset.getWidth() + 10 &&
+                        y >= asset.getY() - 10 && y <= asset.getY() + asset.getHeight() + 10) {
                         
                         // בודקים אם הוא כבר בוער ומחדשים את הטיימר, או מציתים מחדש
                         boolean found = false;
