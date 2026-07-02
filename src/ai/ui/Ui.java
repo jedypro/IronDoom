@@ -156,6 +156,7 @@ public class Ui {
             if (mainRouter != null) {
                 mainRouter.route("/team/reset", Params.of());
                 mainRouter.route("/team/setSameLevel", Params.of());
+                uiState.setSuperpowerCharge(100);
             }
         });
         settingsBtn.addActionListener(e -> navigator.showSettings(UIConstants.CARD_GAME));
