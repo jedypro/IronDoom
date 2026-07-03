@@ -236,6 +236,10 @@ public class KeyBindingSetup {
             }
 
             superpowerRechargeTimer = new javax.swing.Timer(100, e -> {
+                if (uiState.isPaused()) {
+                    return; // Stop charging while paused
+                }
+
                 int currentCharge = uiState.getSuperpowerCharge();
                 javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
                 

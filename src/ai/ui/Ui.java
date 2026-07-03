@@ -271,6 +271,13 @@ public class Ui {
         if (gameCanvas != null) {
             gameCanvas.clearAllEffects();
         }
+        uiState.setSuperpowerCharge(100);
+        javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+        if (bar != null) {
+            bar.setValue(100);
+            bar.setString("SUPERPOWER READY (Press C)");
+            bar.setForeground(new java.awt.Color(0, 200, 200));
+        }
     }
 
     public void updateScore(int score) {
@@ -304,8 +311,7 @@ public class Ui {
             
             if (level >= UIConstants.SUPERPOWER_UNLOCK_LEVEL) {
                 javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
-                if(!uiState.isEndlessMode())
-                {uiState.setSuperpowerCharge(100);}
+                uiState.setSuperpowerCharge(100);
                 // 3. Only trigger the layout recalculation if it's currently hidden
                 if (bar != null && !bar.isVisible()) {
                     bar.setVisible(true);
@@ -330,6 +336,12 @@ public class Ui {
             else
             {
                 javax.swing.JProgressBar bar = uiState.getSuperpowerBar();
+                uiState.setSuperpowerCharge(100);
+                if (bar != null) {
+                    bar.setValue(100);
+                    bar.setString("SUPERPOWER READY (Press C)");
+                    bar.setForeground(new java.awt.Color(0, 200, 200));
+                }
                 
                 // 3. Only trigger the layout recalculation if it's currently hidden
                 if (bar != null && bar.isVisible()) {
