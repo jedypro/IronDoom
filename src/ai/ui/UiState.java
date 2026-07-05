@@ -82,8 +82,7 @@ public class UiState {
     }
 
     public void setSuperpowerCharge(int charge) {
-        if(!isPaused())
-            {this.superpowerCharge = charge;}
+        this.superpowerCharge = charge;
     }
 
     // Setter - The missing function! Saves the progress bar into the state
